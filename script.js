@@ -11,9 +11,13 @@ let gameState = {
     foundCount: 0,
     songTitle: '',
     songArtist: '',
+    songYear: null, // Track song year for dev mode
+    songRank: null, // Track song rank in year's top k (1-based)
+    songYearTopK: null, // Track total top k for that year (e.g., 15 for 2012)
     lyricsRevealed: false, // Track if lyrics are currently revealed
     isSurpriseSong: false, // Track if this is a surprise song
-    titleRevealed: false // Track if song title is revealed
+    titleRevealed: false, // Track if song title is revealed
+    surpriseArtistName: '' // When set, Next Song picks another random song by this artist
 };
 
 // Initialize the game
@@ -42,6 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (surpriseBtn) {
         surpriseBtn.addEventListener('click', surpriseMe);
+    }
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
+    const artistInput = document.getElementById('artistInput');
+    if (surpriseByArtistBtn) {
+        surpriseByArtistBtn.addEventListener('click', surpriseByArtist);
+    }
+    if (artistInput && artistInput.addEventListener) {
+        artistInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') surpriseByArtist();
+        });
     }
     
     // Preload a random surprise song in the background so it's ready when user clicks "Surprise Me"
@@ -107,6 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         backBtn.addEventListener('click', () => {
         // Reset game state
         gameState.isSurpriseSong = false;
+        gameState.surpriseArtistName = '';
+        preloadedArtistSongs = [];
+        preloadedArtistName = '';
         gameState.titleRevealed = false;
         gameState.lyricsRevealed = false;
         
@@ -132,7 +149,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Reset error message (but keep failed songs visible)
         document.getElementById('errorMessage').classList.remove('show');
-        document.getElementById('songSelection').style.display = 'none';
+        const songSelectionOverlay = document.getElementById('songSelectionOverlay');
+        if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
         
         // Update failed songs display to show in lobby screen
         updateFailedSongsDisplay(globalFailedSongs);
@@ -152,9 +170,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
-    if (cancelSelectionBtn) {
+    const songSelectionOverlay = document.getElementById('songSelectionOverlay');
+    if (cancelSelectionBtn && songSelectionOverlay) {
         cancelSelectionBtn.addEventListener('click', () => {
-            document.getElementById('songSelection').style.display = 'none';
+            songSelectionOverlay.style.display = 'none';
             const startBtn = document.getElementById('startBtn');
             const surpriseBtn = document.getElementById('surpriseBtn');
             if (startBtn) {
@@ -164,6 +183,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (surpriseBtn) {
                 surpriseBtn.innerHTML = '🎲 Surprise Me!';
                 surpriseBtn.disabled = false;
+            }
+        });
+        // Close on backdrop click
+        songSelectionOverlay.addEventListener('click', (e) => {
+            if (e.target === songSelectionOverlay) {
+                songSelectionOverlay.style.display = 'none';
             }
         });
     }
@@ -176,6 +201,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Update dev mode UI after everything is set up
     updateDevModeUI();
+    
+    // Log runtime comparison availability
+    console.log('💡 To compare old vs optimized runtime, run: compareRuntime()');
 });
 
 function toggleDevMode() {
@@ -226,18 +254,61 @@ function updateDevModeUI() {
     }
 
     updatePreloadCounter();
+
+    // Dev mode: show song source (Last.fm / Apple / iTunes), year, and rank when in surprise game
+    const songSourceEl = document.getElementById('songSourceDev');
+    if (songSourceEl) {
+        if (devMode && gameState.isSurpriseSong) {
+            let parts = [];
+            
+            // Source
+            if (chartSource) {
+                const sourceMap = {
+                    'lastfm': 'Last.fm',
+                    'apple': 'Apple chart',
+                    'itunes-yearly': 'iTunes (yearly)',
+                    'itunes-optimized': 'iTunes (optimized)',
+                    'itunes': 'iTunes Search'
+                };
+                parts.push('Source: ' + (sourceMap[chartSource] || 'iTunes Search'));
+            }
+            
+            // Year
+            if (gameState.songYear) {
+                parts.push(`Year: ${gameState.songYear}`);
+            }
+            
+            // Rank
+            if (gameState.songRank && gameState.songYearTopK) {
+                parts.push(`Rank: #${gameState.songRank} of top ${gameState.songYearTopK}`);
+            }
+            
+            if (parts.length > 0) {
+                songSourceEl.textContent = parts.join(' | ');
+                songSourceEl.style.display = 'block';
+            } else {
+                songSourceEl.textContent = '';
+                songSourceEl.style.display = 'none';
+            }
+        } else {
+            songSourceEl.textContent = '';
+            songSourceEl.style.display = 'none';
+        }
+    }
 }
 
 // Popularity-based random song: fetch chart from Last.fm, filter by playcount threshold.
 // No hardcoded names; 300–400+ eligible songs; cache refreshed when stale.
 // Get a free API key at https://www.last.fm/api/account/create
-const LASTFM_API_KEY = ''; // optional: set for Last.fm chart + playcount threshold
-const POPULARITY_MIN_PLAYCOUNT = 2000000;  // minimum Last.fm playcount (scrobbles) – higher = more familiar songs
+const LASTFM_API_KEY = '072e57491a78cfaf62abffd5bf5429a4'; // optional: set for Last.fm chart + playcount threshold
+const POPULARITY_MIN_PLAYCOUNT = 20000000; // minimum Last.fm scrobbles – 20M
 const CHART_CACHE_MS = 60 * 60 * 1000;     // 1 hour
 const CHART_MIN_ELIGIBLE = 300;
 const CHART_PAGE_SIZE = 500;
 let chartSongsCache = null;
 let chartSongsCacheTime = 0;
+/** Set by getChartSongs(): 'lastfm' | 'apple' | 'itunes' – for dev mode display. */
+let chartSource = null;
 
 /** Fetch one page of Last.fm chart.getTopTracks via CORS proxy. Returns { track: { name, artist: { name }, playcount } }[]. */
 async function fetchLastFmChartPage(page) {
@@ -260,7 +331,7 @@ async function fetchLastFmChartPage(page) {
     return tracks;
 }
 
-/** Fetch enough Last.fm chart pages to get 300+ tracks above playcount threshold. */
+/** Fetch enough Last.fm chart pages to get tracks above playcount threshold. */
 async function fetchChartSongsLastFm() {
     const out = [];
     const seen = new Set();
@@ -316,11 +387,58 @@ async function fetchChartSongs() {
     return fetchOneChartFeed(url);
 }
 
-/** Fallback: build a pool of popular songs using iTunes Search (no proxy, CORS-friendly). Keeps same idea of "popular" via search terms. */
-async function fetchSongsViaItunesSearch() {
+/** New method: fetch top songs year by year from 1960 to present with variable counts per decade. */
+async function fetchSongsViaYearlyTopHits() {
+    const seen = new Set();
+    const out = [];
+    const currentYear = new Date().getFullYear();
+    
+    for (let year = 1960; year <= currentYear; year++) {
+        let songsPerYear;
+        if (year >= 1960 && year < 1980) {
+            songsPerYear = 4;
+        } else if (year >= 1980 && year < 2000) {
+            songsPerYear = 10;
+        } else {
+            songsPerYear = 15;
+        }
+        
+        try {
+            // Search for top hits from that year
+            const url = `https://itunes.apple.com/search?term=${encodeURIComponent(year)}%20hit&media=music&entity=song&limit=${songsPerYear * 2}`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const data = await res.json();
+            if (!data.results || !data.results.length) continue;
+            
+            // Take top N results and filter
+            const topResults = data.results.slice(0, songsPerYear);
+            for (const r of topResults) {
+                if (!isOriginalVersion(r.trackName)) continue;
+                const title = (r.trackName || '').trim();
+                const artist = (r.artistName || '').trim() || 'Unknown';
+                if (!title || !isLikelyEnglish(title) || !isLikelyEnglish(artist)) continue;
+                const key = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+                if (seen.has(key)) continue;
+                seen.add(key);
+                // Extract year from releaseDate if available, otherwise use search year
+                const releaseYear = r.releaseDate ? new Date(r.releaseDate).getFullYear() : year;
+                out.push({ title, artist, year: releaseYear });
+            }
+        } catch (_e) {
+            continue;
+        }
+    }
+    
+    return out.length >= CHART_MIN_ELIGIBLE ? out : [];
+}
+
+/** Fallback: build a pool using iTunes Search. Without Last.fm we can't use playcount, so take only top results per term (iTunes orders by popularity). */
+async function fetchSongsViaItunesSearchOld() {
     const terms = ['pop', 'rock', 'love', 'country', 'hit', 'top', 'music', 'one', 'life', 'time'];
     const seen = new Set();
     const out = [];
+    const TOP_PER_TERM = 15; // only top 15 per search = more familiar (iTunes returns by popularity)
     for (const term of terms) {
         try {
             const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=50`;
@@ -328,7 +446,8 @@ async function fetchSongsViaItunesSearch() {
             if (!res.ok) continue;
             const data = await res.json();
             if (!data.results || !data.results.length) continue;
-            for (const r of data.results) {
+            const topResults = data.results.slice(0, TOP_PER_TERM);
+            for (const r of topResults) {
                 if (!isOriginalVersion(r.trackName)) continue;
                 const title = (r.trackName || '').trim();
                 const artist = (r.artistName || '').trim() || 'Unknown';
@@ -346,22 +465,37 @@ async function fetchSongsViaItunesSearch() {
     return out;
 }
 
-/** Get cached chart songs, or fetch and cache. Uses iTunes Search fallback when chart fails or is empty. */
+/** Get cached chart songs, or fetch and cache. Sets chartSource for dev mode. */
 async function getChartSongs() {
     const now = Date.now();
     const cacheValid = chartSongsCache && chartSongsCache.length > 0 && (now - chartSongsCacheTime) < CHART_CACHE_MS;
     if (cacheValid) return chartSongsCache;
     let songs = [];
+    chartSource = null;
     try {
         songs = await fetchChartSongs();
+        if (songs && songs.length > 0) {
+            chartSource = (LASTFM_API_KEY && LASTFM_API_KEY.trim()) ? 'lastfm' : 'apple';
+        }
     } catch (e) {
         console.warn('Chart fetch failed, using iTunes Search fallback:', e.message || e);
     }
     if (!songs || songs.length === 0) {
+        // Try new year-by-year method first
         try {
-            songs = await fetchSongsViaItunesSearch();
+            songs = await fetchSongsViaYearlyTopHits();
+            if (songs && songs.length > 0) chartSource = 'itunes-yearly';
         } catch (e) {
-            console.error('iTunes Search fallback failed:', e);
+            console.warn('Yearly top hits method failed, trying old iTunes Search:', e.message || e);
+        }
+        // Fall back to old method if new one didn't work
+        if (!songs || songs.length === 0) {
+            try {
+                songs = await fetchSongsViaItunesSearchOld();
+                if (songs && songs.length > 0) chartSource = 'itunes';
+            } catch (e) {
+                console.error('iTunes Search fallback failed:', e);
+            }
         }
     }
     if (!songs || songs.length === 0) throw new Error('Could not load song list. Check your connection and try again.');
@@ -370,8 +504,8 @@ async function getChartSongs() {
     return songs;
 }
 
-/** Pick a random song from the popular pool (chart or iTunes fallback). Same threshold via chart when available. */
-async function getRandomPopularSong() {
+/** Old method: Pick a random song from the popular pool (chart or iTunes fallback). Fetches all songs first. */
+async function getRandomPopularSongOld() {
     const songs = await getChartSongs();
     if (!songs.length) throw new Error('No songs available');
     let pool = songs.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
@@ -381,7 +515,237 @@ async function getRandomPopularSong() {
     }
     const chosen = pool[Math.floor(Math.random() * pool.length)];
     triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
-    return { title: chosen.title, artist: chosen.artist };
+    return { title: chosen.title, artist: chosen.artist, year: chosen.year || null };
+}
+
+/** Optimized: Pick a random song by selecting weighted random year, then fetching only that year's songs. */
+async function getRandomPopularSong() {
+    const song = await getRandomPopularSongOptimized();
+    // Set chartSource for dev mode display
+    if (!chartSource) {
+        chartSource = 'itunes-optimized';
+    }
+    return song;
+}
+
+/** Optimized version: Select random year weighted by song counts, then fetch only that year's songs. Retries with new year if fetch fails. */
+async function getRandomPopularSongOptimized() {
+    const currentYear = new Date().getFullYear();
+    const maxRetries = 10;
+    const triedYears = new Set();
+    
+    // Calculate total weight (total number of songs across all years)
+    let totalWeight = 0;
+    const yearWeights = [];
+    for (let year = 1960; year <= currentYear; year++) {
+        let songsPerYear;
+        if (year >= 1960 && year < 1980) {
+            songsPerYear = 4;
+        } else if (year >= 1980 && year < 2000) {
+            songsPerYear = 10;
+        } else {
+            songsPerYear = 15;
+        }
+        totalWeight += songsPerYear;
+        yearWeights.push({ year, weight: songsPerYear, cumulative: totalWeight });
+    }
+    
+    // Retry loop: try different years if one fails
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        // Select random year based on weights
+        let selectedYear = 1960;
+        let random = Math.random() * totalWeight;
+        
+        // If we've tried many years, avoid retrying the same ones
+        if (triedYears.size > 0 && attempt > 0) {
+            // Recalculate weights excluding tried years
+            let availableWeight = 0;
+            const availableWeights = [];
+            for (const yw of yearWeights) {
+                if (!triedYears.has(yw.year)) {
+                    availableWeight += yw.weight;
+                    availableWeights.push({ year: yw.year, weight: yw.weight, cumulative: availableWeight });
+                }
+            }
+            if (availableWeights.length === 0) {
+                // All years tried, reset and try again
+                triedYears.clear();
+                availableWeight = totalWeight;
+                availableWeights.push(...yearWeights);
+            }
+            random = Math.random() * availableWeight;
+            for (const yw of availableWeights) {
+                if (random < yw.cumulative) {
+                    selectedYear = yw.year;
+                    break;
+                }
+            }
+        } else {
+            // First attempt or no tried years yet
+            for (const yw of yearWeights) {
+                if (random < yw.cumulative) {
+                    selectedYear = yw.year;
+                    break;
+                }
+            }
+        }
+        
+        triedYears.add(selectedYear);
+        
+        // Determine songs per year for selected year
+        let songsPerYear;
+        if (selectedYear >= 1960 && selectedYear < 1980) {
+            songsPerYear = 4;
+        } else if (selectedYear >= 1980 && selectedYear < 2000) {
+            songsPerYear = 10;
+        } else {
+            songsPerYear = 15;
+        }
+        
+        // Fetch only songs from that year
+        const seen = new Set();
+        const songs = [];
+        try {
+            const url = `https://itunes.apple.com/search?term=${encodeURIComponent(selectedYear)}%20hit&media=music&entity=song&limit=${songsPerYear * 2}`;
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn(`iTunes search failed for year ${selectedYear}: ${res.status}, trying another year...`);
+                continue; // Try next year
+            }
+            const data = await res.json();
+            if (data.results && data.results.length) {
+                const topResults = data.results.slice(0, songsPerYear);
+                for (const r of topResults) {
+                    if (!isOriginalVersion(r.trackName)) continue;
+                    const title = (r.trackName || '').trim();
+                    const artist = (r.artistName || '').trim() || 'Unknown';
+                    if (!title || !isLikelyEnglish(title) || !isLikelyEnglish(artist)) continue;
+                    const key = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+                    if (seen.has(key)) continue;
+                    seen.add(key);
+                    const releaseYear = r.releaseDate ? new Date(r.releaseDate).getFullYear() : selectedYear;
+                    songs.push({ title, artist, year: releaseYear });
+                }
+            }
+        } catch (e) {
+            console.warn(`Error fetching songs for year ${selectedYear}:`, e.message || e, 'Trying another year...');
+            continue; // Try next year
+        }
+        
+        // If we got songs, return one
+        if (songs.length > 0) {
+            // Filter out already tried songs
+            let pool = songs.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
+            if (pool.length === 0) {
+                triedSongsInSession.clear();
+                pool = songs;
+            }
+            
+            const chosenIndex = Math.floor(Math.random() * pool.length);
+            const chosen = pool[chosenIndex];
+            triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
+            
+            // Find the rank of the chosen song in the original songs list (1-based)
+            const rankInOriginal = songs.findIndex(s => 
+                s.title.toLowerCase() === chosen.title.toLowerCase() && 
+                s.artist.toLowerCase() === chosen.artist.toLowerCase()
+            ) + 1;
+            
+            return { 
+                title: chosen.title, 
+                artist: chosen.artist, 
+                year: chosen.year || null,
+                rank: rankInOriginal,
+                topK: songsPerYear
+            };
+        }
+        
+        // No songs found for this year, try next
+        console.warn(`No eligible songs found for year ${selectedYear}, trying another year...`);
+    }
+    
+    // If we've exhausted all retries, throw error
+    throw new Error(`Failed to fetch songs after ${maxRetries} attempts with different years`);
+}
+
+/** Compare runtime of old vs optimized method. Call from console: compareRuntime() */
+async function compareRuntime() {
+    console.log('=== Runtime Comparison ===');
+    
+    let oldTime = 0;
+    let optTime = 0;
+    
+    // Test old method (clear cache first to get accurate timing)
+    console.log('Testing old method (fetching all songs first)...');
+    chartSongsCache = null;
+    chartSongsCacheTime = 0;
+    const oldStart = performance.now();
+    try {
+        const oldSong = await getRandomPopularSongOld();
+        const oldEnd = performance.now();
+        oldTime = oldEnd - oldStart;
+        console.log(`Old method: ${oldTime.toFixed(2)}ms - Got: ${oldSong.title} by ${oldSong.artist}${oldSong.year ? ` (${oldSong.year})` : ''}`);
+    } catch (e) {
+        console.error('Old method failed:', e);
+        oldTime = Infinity;
+    }
+    
+    // Test optimized method
+    console.log('\nTesting optimized method (fetching only selected year)...');
+    const optStart = performance.now();
+    try {
+        const optSong = await getRandomPopularSongOptimized();
+        const optEnd = performance.now();
+        optTime = optEnd - optStart;
+        console.log(`Optimized method: ${optTime.toFixed(2)}ms - Got: ${optSong.title} by ${optSong.artist}${optSong.year ? ` (${optSong.year})` : ''}`);
+    } catch (e) {
+        console.error('Optimized method failed:', e);
+        optTime = Infinity;
+    }
+    
+    // Show comparison
+    console.log('\n=== Results ===');
+    if (oldTime !== Infinity && optTime !== Infinity) {
+        const improvement = ((oldTime - optTime) / oldTime * 100);
+        const speedup = (oldTime / optTime).toFixed(2);
+        console.log(`Old method: ${oldTime.toFixed(2)}ms`);
+        console.log(`Optimized method: ${optTime.toFixed(2)}ms`);
+        if (improvement > 0) {
+            console.log(`✅ Optimized is ${improvement.toFixed(1)}% faster (${speedup}x speedup)`);
+        } else {
+            console.log(`⚠️ Optimized is ${Math.abs(improvement).toFixed(1)}% slower`);
+        }
+    }
+    console.log('=== End Comparison ===');
+    
+    return { oldTime, optTime };
+}
+
+// Expose comparison function globally for console access
+window.compareRuntime = compareRuntime;
+
+/** Fetch songs by artist via iTunes Search. Returns [{ title, artist }] filtered for original versions and English. */
+async function getSongsByArtist(artistName) {
+    const term = artistName.trim();
+    if (!term) return [];
+    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(term)}&media=music&entity=song&limit=100`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`iTunes search failed: ${res.status}`);
+    const data = await res.json();
+    const results = data.results || [];
+    const seen = new Set();
+    const out = [];
+    for (const r of results) {
+        const title = (r.trackName || '').trim();
+        const artist = (r.artistName || '').trim() || 'Unknown';
+        if (!title || !isOriginalVersion(title)) continue;
+        if (!isLikelyEnglish(title) || !isLikelyEnglish(artist)) continue;
+        const key = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ title, artist });
+    }
+    return out;
 }
 
 // Global failed songs list
@@ -396,6 +760,11 @@ let preloadInProgress = false;
 /** When true, background preload is paused so the user's chosen song loads with immediate priority. */
 let userSongLoadInProgress = false;
 
+// Artist preload: when playing "surprise by artist", preload songs by that artist (global preload continues too)
+let preloadedArtistSongs = []; // { title, artist, lyrics }[]
+let preloadedArtistName = '';
+let preloadArtistInProgress = false;
+
 /** Update dev-mode preload counter (visibility + count). Call whenever queue changes or dev mode toggles. */
 function updatePreloadCounter() {
     const el = document.getElementById('preloadCounter');
@@ -403,6 +772,13 @@ function updatePreloadCounter() {
     if (!el || !countEl) return;
     countEl.textContent = String(preloadedSurpriseSongs.length);
     el.style.display = devMode ? 'inline' : 'none';
+    const artistEl = document.getElementById('preloadArtistCounter');
+    if (artistEl) {
+        const artistCountEl = document.getElementById('preloadArtistCount');
+        const showArtist = devMode && gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+        artistEl.style.display = showArtist ? 'inline' : 'none';
+        if (artistCountEl) artistCountEl.textContent = String(preloadedArtistSongs.length);
+    }
 }
 
 /** Load one more song into the queue if we have room. Skips when user is loading a specific song (priority). */
@@ -413,7 +789,7 @@ function preloadNextSurpriseSong() {
         .then(song => fetchLyrics(song.title, song.artist).then(lyrics => ({ song, lyrics })))
         .then(({ song, lyrics }) => {
             if (lyrics && lyrics.trim().length >= 50 && isLikelyEnglish(lyrics)) {
-                preloadedSurpriseSongs.push({ title: song.title, artist: song.artist, lyrics });
+                preloadedSurpriseSongs.push({ title: song.title, artist: song.artist, lyrics, year: song.year || null, rank: song.rank || null, topK: song.topK || null });
                 updatePreloadCounter();
             }
         })
@@ -422,6 +798,48 @@ function preloadNextSurpriseSong() {
             preloadInProgress = false;
             if (preloadedSurpriseSongs.length < PRELOAD_QUEUE_MAX) preloadNextSurpriseSong();
         });
+}
+
+/** Load one more song by current artist into artist queue. Only runs when surpriseArtistName is set; does not block global preload. */
+function preloadNextArtistSong() {
+    const artist = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    if (!artist || userSongLoadInProgress || preloadedArtistSongs.length >= PRELOAD_QUEUE_MAX || preloadArtistInProgress) return;
+    if (preloadedArtistName !== artist) {
+        preloadedArtistName = artist;
+        preloadedArtistSongs = [];
+    }
+    preloadArtistInProgress = true;
+    getSongsByArtist(artist)
+        .then(songs => {
+            if (!songs.length) return null;
+            let pool = songs.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
+            if (pool.length === 0) {
+                pool = songs;
+            }
+            const chosen = pool[Math.floor(Math.random() * pool.length)];
+            triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
+            return fetchLyrics(chosen.title, chosen.artist).then(lyrics => ({ title: chosen.title, artist: chosen.artist, lyrics }));
+        })
+        .then(result => {
+            if (result && result.lyrics && result.lyrics.trim().length >= 50 && isLikelyEnglish(result.lyrics)) {
+                preloadedArtistSongs.push({ title: result.title, artist: result.artist, lyrics: result.lyrics });
+                updatePreloadCounter();
+            }
+        })
+        .catch(() => {})
+        .finally(() => {
+            preloadArtistInProgress = false;
+            if (gameState.surpriseArtistName && gameState.surpriseArtistName.trim() && preloadedArtistSongs.length < PRELOAD_QUEUE_MAX) {
+                preloadNextArtistSong();
+            }
+        });
+}
+
+/** Take one preloaded artist song from the queue, or null if none. */
+function takePreloadedArtistSong() {
+    const song = preloadedArtistSongs.length > 0 ? preloadedArtistSongs.shift() : null;
+    if (song) updatePreloadCounter();
+    return song;
 }
 
 /** Take one preloaded song from the queue, or null if none. */
@@ -435,8 +853,10 @@ function takePreloadedSong() {
 function applyPreloadedSong(song) {
     const startBtn = document.getElementById('startBtn');
     const surpriseBtn = document.getElementById('surpriseBtn');
-    initializeGame(song.lyrics, song.title, song.artist, true);
-    document.getElementById('songSelection').style.display = 'none';
+    gameState.surpriseArtistName = ''; // global surprise, not by artist
+    initializeGame(song.lyrics, song.title, song.artist, true, song.year || null, song.rank || null, song.topK || null);
+    const songSelectionOverlay = document.getElementById('songSelectionOverlay');
+    if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
     document.getElementById('gameSetup').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
     updateFailedSongsDisplay(globalFailedSongs);
@@ -469,7 +889,7 @@ function playSongRefreshAnimation() {
     setTimeout(() => container.classList.remove('song-refresh'), 460);
 }
 
-/** Load next surprise song (only in surprise game). Uses preload if ready, else fetches one. */
+/** Load next surprise song (only in surprise game). Uses preload if ready, else fetches one. When surpriseArtistName is set, picks from that artist. */
 async function nextSurpriseSong() {
     if (!gameState.isSurpriseSong) return;
     const nextSongBtn = document.getElementById('nextSongBtn');
@@ -478,30 +898,63 @@ async function nextSurpriseSong() {
     nextSongBtn.disabled = true;
     resetVictoryUI();
 
-    const preloaded = takePreloadedSong();
-    if (preloaded && preloaded.lyrics && preloaded.lyrics.trim().length >= 50) {
-        const key = `${preloaded.title.toLowerCase()}_${preloaded.artist.toLowerCase()}`;
-        triedSongsInSession.add(key);
-        applyPreloadedSong(preloaded);
-        preloadNextSurpriseSong();
-        nextSongBtn.innerHTML = 'Next Song →';
-        nextSongBtn.disabled = false;
-        playSongRefreshAnimation();
-        return;
+    const byArtist = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    if (!byArtist) {
+        const preloaded = takePreloadedSong();
+        if (preloaded && preloaded.lyrics && preloaded.lyrics.trim().length >= 50) {
+            const key = `${preloaded.title.toLowerCase()}_${preloaded.artist.toLowerCase()}`;
+            triedSongsInSession.add(key);
+            applyPreloadedSong(preloaded);
+            preloadNextSurpriseSong();
+            nextSongBtn.innerHTML = 'Next Song →';
+            nextSongBtn.disabled = false;
+            playSongRefreshAnimation();
+            return;
+        }
+    } else {
+        const preloadedArtist = takePreloadedArtistSong();
+        if (preloadedArtist && preloadedArtist.lyrics && preloadedArtist.lyrics.trim().length >= 50) {
+            const key = `${preloadedArtist.title.toLowerCase()}_${preloadedArtist.artist.toLowerCase()}`;
+            triedSongsInSession.add(key);
+            initializeGame(preloadedArtist.lyrics, preloadedArtist.title, preloadedArtist.artist, true);
+            updateFailedSongsDisplay(globalFailedSongs);
+            document.getElementById('gameArea').style.display = 'block';
+            const wordInputEl = document.getElementById('wordInput');
+            if (wordInputEl) wordInputEl.focus();
+            updateDevModeUI();
+            preloadNextArtistSong();
+            nextSongBtn.innerHTML = 'Next Song →';
+            nextSongBtn.disabled = false;
+            playSongRefreshAnimation();
+            return;
+        }
     }
 
     try {
-        const song = await getRandomPopularSong();
+        let song;
+        if (byArtist) {
+            const songs = await getSongsByArtist(gameState.surpriseArtistName);
+            if (!songs.length) throw new Error('No songs for this artist');
+            let pool = songs.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
+            if (pool.length === 0) {
+                triedSongsInSession.clear();
+                pool = songs;
+            }
+            song = pool[Math.floor(Math.random() * pool.length)];
+            triedSongsInSession.add(`${song.title.toLowerCase()}_${song.artist.toLowerCase()}`);
+        } else {
+            song = await getRandomPopularSong();
+        }
         const lyrics = await fetchLyrics(song.title, song.artist);
         if (!lyrics || lyrics.trim().length < 50) throw new Error('No lyrics');
-        const key = `${song.title.toLowerCase()}_${song.artist.toLowerCase()}`;
-        triedSongsInSession.add(key);
-        initializeGame(lyrics, song.title, song.artist, true);
+        if (!isLikelyEnglish(lyrics)) throw new Error('Lyrics not English');
+        initializeGame(lyrics, song.title, song.artist, true, song.year || null, song.rank || null, song.topK || null);
         updateFailedSongsDisplay(globalFailedSongs);
         const wordInputEl = document.getElementById('wordInput');
         if (wordInputEl) wordInputEl.focus();
         updateDevModeUI();
-        preloadNextSurpriseSong();
+        if (byArtist) preloadNextArtistSong();
+        else preloadNextSurpriseSong();
         playSongRefreshAnimation();
     } catch (err) {
         console.error('Next song failed:', err);
@@ -558,6 +1011,7 @@ async function surpriseMe() {
     // If we have at least one preloaded song, use it immediately and refill in background
     const preloaded = takePreloadedSong();
     if (preloaded && preloaded.lyrics && preloaded.lyrics.trim().length >= 50) {
+        gameState.surpriseArtistName = ''; // global surprise, not by artist
         surpriseBtn.innerHTML = 'Finding a surprise... <span class="loading"></span>';
         surpriseBtn.disabled = true;
         startBtn.disabled = true;
@@ -568,6 +1022,7 @@ async function surpriseMe() {
         return;
     }
 
+    gameState.surpriseArtistName = ''; // global surprise
     // Clear previous failed songs list when starting new search
     globalFailedSongs = [];
     triedSongsInSession.clear(); // Reset tried songs for new session
@@ -629,7 +1084,7 @@ async function surpriseMe() {
             
             // Try to load the song (this will fetch lyrics)
             try {
-                await loadSong(randomSong.title, randomSong.artist, true); // true = is surprise song
+                await loadSong(randomSong.title, randomSong.artist, true, randomSong.year || null, randomSong.rank || null, randomSong.topK || null); // true = is surprise song
                 // Success! Exit the retry loop
                 // Keep failed songs visible (don't hide on success)
                 return;
@@ -695,6 +1150,100 @@ async function surpriseMe() {
     }
 }
 
+async function surpriseByArtist() {
+    const artistInputEl = document.getElementById('artistInput');
+    const artistName = (artistInputEl && artistInputEl.value) ? artistInputEl.value.trim() : '';
+    const errorMessage = document.getElementById('errorMessage');
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
+    const startBtn = document.getElementById('startBtn');
+    const surpriseBtn = document.getElementById('surpriseBtn');
+
+    errorMessage.classList.remove('show');
+    const songSelectionOverlay = document.getElementById('songSelectionOverlay');
+    if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
+
+    if (!artistName) {
+        showError('Please enter an artist name');
+        return;
+    }
+
+    globalFailedSongs = [];
+    triedSongsInSession.clear();
+    updateFailedSongsDisplay(globalFailedSongs);
+
+    surpriseByArtistBtn.innerHTML = 'Finding a song... <span class="loading"></span>';
+    surpriseByArtistBtn.disabled = true;
+    startBtn.disabled = true;
+    if (surpriseBtn) surpriseBtn.disabled = true;
+
+    let songs = [];
+    try {
+        songs = await getSongsByArtist(artistName);
+    } catch (e) {
+        showError('Could not find songs for that artist. Try another name.');
+        surpriseByArtistBtn.innerHTML = '🎤 Random song by artist';
+        surpriseByArtistBtn.disabled = false;
+        startBtn.disabled = false;
+        if (surpriseBtn) surpriseBtn.disabled = false;
+        return;
+    }
+
+    if (!songs.length) {
+        showError(`No eligible songs found for "${artistName}". Try another artist.`);
+        surpriseByArtistBtn.innerHTML = '🎤 Random song by artist';
+        surpriseByArtistBtn.disabled = false;
+        startBtn.disabled = false;
+        if (surpriseBtn) surpriseBtn.disabled = false;
+        return;
+    }
+
+    const maxRetries = 10;
+    let attempts = 0;
+    const startTime = Date.now();
+    const maxTime = 60000;
+
+    while (attempts < maxRetries) {
+        if (Date.now() - startTime > maxTime) {
+            showError('Search timed out. Please try again.');
+            break;
+        }
+        attempts++;
+        if (attempts > 1) {
+            surpriseByArtistBtn.innerHTML = `Trying song ${attempts}/${maxRetries}... <span class="loading"></span>`;
+        }
+        let pool = songs.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
+        if (pool.length === 0) {
+            triedSongsInSession.clear();
+            pool = songs;
+        }
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
+        try {
+            await loadSong(chosen.title, chosen.artist, true);
+            gameState.surpriseArtistName = artistName;
+            preloadNextArtistSong(); // start preloading more songs by this artist
+            surpriseByArtistBtn.innerHTML = '🎤 Random song by artist';
+            surpriseByArtistBtn.disabled = false;
+            startBtn.disabled = false;
+            if (surpriseBtn) surpriseBtn.disabled = false;
+            return;
+        } catch (lyricsError) {
+            const failedSong = `${chosen.title} by ${chosen.artist}`;
+            if (!globalFailedSongs.includes(failedSong)) globalFailedSongs.push(failedSong);
+            updateFailedSongsDisplay(globalFailedSongs);
+            if (attempts >= maxRetries) {
+                showError(`Could not find a song with lyrics after ${maxRetries} attempts. ${globalFailedSongs.length > 0 ? `Failed: ${globalFailedSongs.length}` : ''}`);
+                break;
+            }
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    surpriseByArtistBtn.innerHTML = '🎤 Random song by artist';
+    surpriseByArtistBtn.disabled = false;
+    startBtn.disabled = false;
+    if (surpriseBtn) surpriseBtn.disabled = false;
+}
+
 async function startGame() {
     const songInput = document.getElementById('songInput');
     const errorMessage = document.getElementById('errorMessage');
@@ -710,11 +1259,13 @@ async function startGame() {
     globalFailedSongs = [];
     updateFailedSongsDisplay(globalFailedSongs);
 
-    // Show loading only on Start Game button; disable both buttons
+    // Show loading only on Start Game button; disable other lobby buttons
     const surpriseBtn = document.getElementById('surpriseBtn');
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
     startBtn.innerHTML = 'Searching... <span class="loading"></span>';
     startBtn.disabled = true;
     if (surpriseBtn) surpriseBtn.disabled = true;
+    if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
     errorMessage.classList.remove('show');
     document.getElementById('songSelection').style.display = 'none';
 
@@ -744,26 +1295,30 @@ async function startGame() {
             surpriseBtn.innerHTML = '🎲 Surprise Me!';
             surpriseBtn.disabled = false;
         }
+        if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = false;
     }
 }
 
-async function loadSong(title, artist, isSurprise = false) {
+async function loadSong(title, artist, isSurprise = false, year = null, rank = null, topK = null) {
     const startBtn = document.getElementById('startBtn');
     const surpriseBtn = document.getElementById('surpriseBtn');
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
     if (!isSurprise) userSongLoadInProgress = true;
 
     try {
-        // Show loading only on the button that triggered this flow; disable both
+        // Show loading only on the button that triggered this flow; disable other lobby buttons
         if (isSurprise) {
             if (surpriseBtn) {
                 surpriseBtn.innerHTML = 'Loading lyrics... <span class="loading"></span>';
                 surpriseBtn.disabled = true;
             }
             startBtn.disabled = true;
+            if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
         } else {
             startBtn.innerHTML = 'Loading lyrics... <span class="loading"></span>';
             startBtn.disabled = true;
             if (surpriseBtn) surpriseBtn.disabled = true;
+            if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
         }
 
         // Fetch lyrics (user's request gets full priority - no background preload started while this runs)
@@ -774,10 +1329,11 @@ async function loadSong(title, artist, isSurprise = false) {
         }
 
         // Initialize game
-        initializeGame(lyrics, title, artist, isSurprise);
+        initializeGame(lyrics, title, artist, isSurprise, year, rank, topK);
 
         // Hide selection if visible
-        document.getElementById('songSelection').style.display = 'none';
+        const songSelectionOverlay = document.getElementById('songSelectionOverlay');
+        if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
 
         // Show game area
         document.getElementById('gameSetup').style.display = 'none';
@@ -793,6 +1349,7 @@ async function loadSong(title, artist, isSurprise = false) {
             surpriseBtn.innerHTML = '🎲 Surprise Me!';
             surpriseBtn.disabled = false;
         }
+        if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = false;
 
         // Focus on word input
         const wordInputEl = document.getElementById('wordInput');
@@ -815,6 +1372,7 @@ async function loadSong(title, artist, isSurprise = false) {
                 surpriseBtn.innerHTML = '🎲 Surprise Me!';
                 surpriseBtn.disabled = false;
             }
+            if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = false;
         }
         // Always re-throw error so surpriseMe can handle it
         throw error;
@@ -955,10 +1513,13 @@ async function searchSongs(query) {
 }
 
 function showSongSelection(songs, query) {
+    const songSelectionOverlay = document.getElementById('songSelectionOverlay');
     const songSelection = document.getElementById('songSelection');
     const songList = document.getElementById('songList');
     const startBtn = document.getElementById('startBtn');
     const surpriseBtn = document.getElementById('surpriseBtn');
+    
+    if (!songSelectionOverlay) return;
     
     songList.innerHTML = '';
     
@@ -973,23 +1534,25 @@ function showSongSelection(songs, query) {
             </div>
         `;
         songItem.addEventListener('click', async () => {
-            songSelection.style.display = 'none';
+            songSelectionOverlay.style.display = 'none';
             try {
                 await loadSong(song.title, song.artist);
             } catch (_err) {
-                songSelection.style.display = 'block';
+                songSelectionOverlay.style.display = 'flex';
             }
         });
         songList.appendChild(songItem);
     });
     
-    songSelection.style.display = 'block';
+    songSelectionOverlay.style.display = 'flex';
     startBtn.innerHTML = 'Start Game';
     startBtn.disabled = false;
     if (surpriseBtn) {
         surpriseBtn.innerHTML = '🎲 Surprise Me!';
         surpriseBtn.disabled = false;
     }
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
+    if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = false;
 }
 
 
@@ -1230,7 +1793,7 @@ async function fetchLyrics(title, artist) {
 
 // ---------- End lyrics fetching ----------
 
-function initializeGame(lyrics, title, artist, isSurprise = false) {
+function initializeGame(lyrics, title, artist, isSurprise = false, year = null, rank = null, topK = null) {
     // Store original lyrics for reference
     console.log('Initializing game with lyrics:', lyrics.substring(0, 200) + '...');
     
@@ -1250,6 +1813,9 @@ function initializeGame(lyrics, title, artist, isSurprise = false) {
     gameState.foundCount = 0;
     gameState.songTitle = title;
     gameState.songArtist = artist;
+    gameState.songYear = year;
+    gameState.songRank = rank;
+    gameState.songYearTopK = topK;
     gameState.lyricsRevealed = false;
     gameState.isSurpriseSong = isSurprise;
     gameState.titleRevealed = !isSurprise; // Hide title if surprise song
@@ -1399,6 +1965,9 @@ function normalizeWord(word) {
     // Remove punctuation and convert to lowercase for comparison
     return word.replace(/[^\w]/g, '').toLowerCase();
 }
+
+/** Normalized "oh"-style words: guessing any of these reveals all of them in the lyrics. */
+const OH_VARIANTS = new Set(['oh', 'ooh', 'ohh', 'oooh', 'ohhh', 'oohh', 'ooooh', 'ohhhh', 'oohoh']);
 
 function createLyricsTable(words) {
     const table = document.getElementById('lyricsTable');
@@ -1738,6 +2307,35 @@ function checkWord(inputWord, shouldClearInput = false) {
     
     const normalizedInput = normalizeWord(inputWord);
     if (normalizedInput.length === 0) return false;
+    
+    // Special case: "oh" / "ooh" / "ohh" etc. – guessing any variant reveals all variants in the lyrics
+    if (OH_VARIANTS.has(normalizedInput)) {
+        const ohMatches = [];
+        gameState.words.forEach((wordObj, index) => {
+            if (!wordObj.isNewline && OH_VARIANTS.has(wordObj.normalized) && !gameState.foundWords.has(wordObj.normalized)) {
+                ohMatches.push(index);
+            }
+        });
+        if (ohMatches.length > 0) {
+            ohMatches.forEach(index => gameState.foundWords.add(gameState.words[index].normalized));
+            gameState.userGuessedWords.add(normalizedInput);
+            gameState.foundCount += ohMatches.length;
+            revealWord(normalizedInput, ohMatches);
+            document.getElementById('foundCount').textContent = gameState.foundCount;
+            if (shouldClearInput) document.getElementById('wordInput').value = '';
+            if (!gameState.lyricsRevealed && gameState.foundCount >= gameState.totalWords) {
+                if (gameState.isSurpriseSong && !gameState.titleRevealed) {
+                    revealSongTitle();
+                    const revealTitleBtn = document.getElementById('revealTitleBtn');
+                    if (revealTitleBtn) revealTitleBtn.textContent = 'Hide Song';
+                }
+                showVictory();
+            }
+            return true;
+        }
+        if (shouldClearInput) document.getElementById('wordInput').value = '';
+        return false;
+    }
     
     // Check if word exists in lyrics and hasn't been found yet
     if (gameState.foundWords.has(normalizedInput)) {

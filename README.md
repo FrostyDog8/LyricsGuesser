@@ -1,4 +1,4 @@
-# Lyrics Figure - Lyrics Guessing Game
+# Lyrics Puzzle - Fill in the Lyrics Game
 
 A fun web-based game where you guess song lyrics word by word!
 

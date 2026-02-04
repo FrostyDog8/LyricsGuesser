@@ -3,37 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lyrics Figure - Guess the Song!</title>
+    <title>Lyrics Puzzle - Fill in the Lyrics!</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
+        <p class="version-sign">v1.1</p>
         <div class="dev-mode-row">
             <button id="devModeBtn" class="btn btn-dev-mode" title="Toggle Developer Mode">🔧</button>
             <span id="preloadCounter" class="preload-counter" style="display: none;" title="Preloaded surprise songs ready">Songs ready: <strong id="preloadCount">0</strong> / 3</span>
+            <span id="preloadArtistCounter" class="preload-counter" style="display: none;" title="Preloaded songs by current artist">Artist: <strong id="preloadArtistCount">0</strong> / 3</span>
         </div>
         <header>
-            <h1>🎵 Lyrics Figure</h1>
-            <p class="subtitle">Guess the song by filling in the lyrics!</p>
+            <h1>🎵 Lyrics Puzzle</h1>
+            <p class="subtitle">Type words to reveal lyrics as you play! Match words as you type and fill in the blanks to complete the song lyrics.</p>
         </header>
 
         <div class="game-setup" id="gameSetup">
-            <div class="input-group">
-                <label for="songInput">Enter song name:</label>
-                <input type="text" id="songInput" placeholder="e.g., Bohemian Rhapsody">
-                <button id="startBtn" class="btn btn-primary">Start Game</button>
-                <div class="divider">or</div>
-                <button id="surpriseBtn" class="btn btn-secondary">🎲 Surprise Me!</button>
+            <div class="game-modes">
+                <div class="game-mode-card">
+                    <div class="mode-icon">🎯</div>
+                    <h3>Choose a Song</h3>
+                    <p class="mode-description">Pick any song you want to play. Enter the song name and start guessing!</p>
+                    <div class="mode-input-group">
+                        <input type="text" id="songInput" placeholder="e.g., Bohemian Rhapsody">
+                        <button id="startBtn" class="btn btn-primary">Start Game</button>
+                    </div>
+                </div>
+
+                <div class="game-mode-card">
+                    <div class="mode-icon">🎲</div>
+                    <h3>Surprise Me</h3>
+                    <p class="mode-description">Get a random popular song and test your knowledge. The song name is hidden until you complete it!</p>
+                    <button id="surpriseBtn" class="btn btn-secondary">🎲 Surprise Me!</button>
+                </div>
+
+                <div class="game-mode-card">
+                    <div class="mode-icon">🎤</div>
+                    <h3>Surprise by Artist</h3>
+                    <p class="mode-description">Get a random song from your favorite artist. Perfect for testing your knowledge of a specific artist!</p>
+                    <div class="mode-input-group">
+                        <input type="text" id="artistInput" placeholder="e.g., Taylor Swift">
+                        <button id="surpriseByArtistBtn" class="btn btn-secondary">🎤 Random Song</button>
+                    </div>
+                </div>
             </div>
             <div id="errorMessage" class="error-message"></div>
             <div id="failedSongs" class="failed-songs" style="display: none;">
                 <h4>Failed Songs (for testing):</h4>
                 <div id="failedSongsList"></div>
             </div>
-            <div id="songSelection" class="song-selection" style="display: none;">
-                <h3>Multiple songs found. Please select one:</h3>
-                <div id="songList" class="song-list"></div>
-                <button id="cancelSelectionBtn" class="btn btn-secondary">Cancel</button>
+            <div id="songSelectionOverlay" class="song-selection-overlay" style="display: none;">
+                <div id="songSelection" class="song-selection">
+                    <h3>Multiple songs found</h3>
+                    <p class="song-selection-subtitle">Please select one:</p>
+                    <div id="songList" class="song-list"></div>
+                    <button id="cancelSelectionBtn" class="btn btn-secondary">Cancel</button>
+                </div>
             </div>
         </div>
 
@@ -51,6 +77,7 @@
                     <h2 id="songTitle" class="hidden-title">???</h2>
                 </div>
                 <p id="songArtist" class="hidden-artist">???</p>
+                <p id="songSourceDev" class="song-source-dev" style="display: none;"></p>
                 <div class="song-info-actions">
                     <button id="revealTitleBtn" class="btn btn-reveal-song">Reveal Song</button>
                     <a id="youtubeLink" href="https://www.youtube.com" target="_blank" class="btn btn-youtube" style="display: none;">

@@ -10,7 +10,7 @@ git add .
 $message = Read-Host "Enter commit message (or press Enter for default)"
 
 if ([string]::IsNullOrWhiteSpace($message)) {
-    $message = "Update Lyrics Figure game"
+    $message = "Update Lyrics Puzzle game"
 }
 
 # Commit changes
