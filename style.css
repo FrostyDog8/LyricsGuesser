@@ -649,18 +649,33 @@ header h1 {
 
 .game-area-top-bar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
     gap: 16px;
     flex-wrap: wrap;
 }
 
+.game-area-top-left {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    min-width: 0;
+}
+
+.game-area-top-right {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 0;
+}
+
 .song-details-top {
     display: flex;
     flex-direction: column;
     align-items: center;
-    flex: 1;
+    flex: 0 0 auto;
     gap: 4px;
     min-width: 200px;
 }

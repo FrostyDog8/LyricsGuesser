@@ -71,7 +71,9 @@
                 <span class="artist-mode-text">Playing songs by: <strong id="artistModeName"></strong></span>
             </div>
             <div class="game-area-top-bar">
-                <button id="backBtn" class="btn btn-secondary back-btn">← Back to Main</button>
+                <div class="game-area-top-left">
+                    <button id="backBtn" class="btn btn-secondary back-btn">← Back to Main</button>
+                </div>
                 <div class="song-details-top">
                     <div class="song-title-container">
                         <h2 id="songTitle" class="hidden-title">???</h2>
@@ -81,7 +83,9 @@
                         <span id="songYear" class="hidden-year">???</span>
                     </div>
                 </div>
-                <button id="nextSongBtn" class="btn btn-secondary next-song-btn" style="display: none;" title="Skip to next random song">Next Song →</button>
+                <div class="game-area-top-right">
+                    <button id="nextSongBtn" class="btn btn-secondary next-song-btn" style="display: none;" title="Skip to next random song">Next Song →</button>
+                </div>
             </div>
             <div id="failedSongsGame" class="failed-songs" style="display: none;">
                 <h4>Failed Songs (for testing):</h4>
