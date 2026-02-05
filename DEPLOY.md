@@ -39,15 +39,24 @@ git push -u origin main
 When you want to publish your local changes:
 
 ```bash
-# Stage all changes
-git add .
+# Include the app and the song list (required for the live game)
+git add index.html script.js style.css README.md
+git add songs-by-year.json embedded-songs.js
 
-# Commit with a message
+# If you changed setup or build scripts, add those too
+git add build-embedded-songs.js SETUP.md
+
+# Commit and push
 git commit -m "Description of your changes"
-
-# Push to GitHub
 git push
 ```
+
+**Why the song list is included:** The game loads `embedded-songs.js` (built from `songs-by-year.json`) for Surprise Me and by-artist modes. If you update the song list locally, you must commit and push both `songs-by-year.json` and `embedded-songs.js` (run `node build-embedded-songs.js` first) so the live site has the same songs.
+
+**Why some files are not pushed by default:**
+- **build-embedded-songs.js** – Build script; only commit when you change how the bundle is built.
+- **SETUP.md** – Docs; commit when you update setup instructions.
+- **dedupe-songs.js, list-eligible-songs.js, runtime-test.html, year-songs-viewer.html** – Dev/testing tools and one-off scripts; optional to track. Add them if you want them in the repo; leave untracked if they’re only for local use.
 
 GitHub Pages will automatically update within 1-2 minutes!
 
