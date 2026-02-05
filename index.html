@@ -8,7 +8,7 @@
 </head>
 <body>
     <div class="container">
-        <p class="version-sign">v1.2</p>
+        <p class="version-sign">v1.3</p>
         <div class="dev-mode-row">
             <button id="devModeBtn" class="btn btn-dev-mode" title="Toggle Developer Mode">🔧</button>
             <span id="preloadCounter" class="preload-counter" style="display: none;" title="Preloaded surprise songs ready">Songs ready: <strong id="preloadCount">0</strong> / 5</span>
@@ -36,6 +36,7 @@
                     <h3>Surprise Me</h3>
                     <p class="mode-description">Get a random popular song and test your knowledge. The song name is hidden until you complete it!</p>
                     <button id="surpriseBtn" class="btn btn-secondary">🎲 Surprise Me!</button>
+                    <button id="helpSurpriseBtn" class="btn-help" title="How does Surprise Me work?">?</button>
                 </div>
 
                 <div class="game-mode-card">
@@ -46,6 +47,7 @@
                         <input type="text" id="artistInput" placeholder="e.g., Taylor Swift">
                         <button id="surpriseByArtistBtn" class="btn btn-secondary">🎤 Random Song</button>
                     </div>
+                    <button id="helpArtistBtn" class="btn-help" title="How does Surprise by Artist work?">?</button>
                 </div>
             </div>
             <div id="errorMessage" class="error-message"></div>
@@ -64,9 +66,21 @@
         </div>
 
         <div class="game-area" id="gameArea" style="display: none;">
+            <div id="artistModeBanner" class="artist-mode-banner" style="display: none;">
+                <span class="artist-mode-icon">🎤</span>
+                <span class="artist-mode-text">Playing songs by: <strong id="artistModeName"></strong></span>
+            </div>
             <div class="game-area-top-bar">
                 <button id="backBtn" class="btn btn-secondary back-btn">← Back to Main</button>
-                <button id="giveUpBtn" class="btn btn-give-up">Give Up</button>
+                <div class="song-details-top">
+                    <div class="song-title-container">
+                        <h2 id="songTitle" class="hidden-title">???</h2>
+                    </div>
+                    <p id="songArtist" class="hidden-artist">???</p>
+                    <div class="song-year-container">
+                        <span id="songYear" class="hidden-year">???</span>
+                    </div>
+                </div>
                 <button id="nextSongBtn" class="btn btn-secondary next-song-btn" style="display: none;" title="Skip to next random song">Next Song →</button>
             </div>
             <div id="failedSongsGame" class="failed-songs" style="display: none;">
@@ -74,29 +88,44 @@
                 <div id="failedSongsListGame"></div>
             </div>
             <div class="song-info">
-                <div class="song-title-container">
-                    <h2 id="songTitle" class="hidden-title">???</h2>
-                </div>
-                <p id="songArtist" class="hidden-artist">???</p>
                 <p id="songSourceDev" class="song-source-dev" style="display: none;"></p>
                 <div class="song-info-actions">
                     <button id="revealTitleBtn" class="btn btn-reveal-song">Reveal Song</button>
+                    <button id="revealYearBtn" class="btn btn-reveal-year" style="display: none;">Reveal Year</button>
+                    <button id="giveUpBtn" class="btn btn-give-up">Give Up</button>
                     <a id="youtubeLink" href="https://www.youtube.com" target="_blank" class="btn btn-youtube" style="display: none;">
                         <span>▶</span> Watch on YouTube
                     </a>
                 </div>
             </div>
 
-            <div class="input-section">
+            <div class="input-section" id="inputSection">
                 <div class="input-row">
                     <div class="input-wrapper">
-                        <label for="wordInput">Guess a word:</label>
+                        <label for="wordInput">Guess a word: <button id="helpGameplayBtnGame" class="btn-help-inline" title="How to play" style="display: none;">?</button></label>
                         <input type="text" id="wordInput" placeholder="Type a word..." autocomplete="off">
                     </div>
                     <button id="revealBtn" class="btn btn-secondary" title="Reveal all lyrics" style="display: none;">Reveal Lyrics</button>
                 </div>
                 <div class="stats">
                     <span>Found: <span id="foundCount">0</span> / <span id="totalCount">0</span></span>
+                </div>
+            </div>
+            <div id="endGameStats" class="end-game-stats" style="display: none;">
+                <h3 id="endGameStatsTitle">Game Over</h3>
+                <div class="results-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="endGameFoundCount">0</div>
+                        <div class="stat-label">Words Found</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="endGameTotalCount">0</div>
+                        <div class="stat-label">Total Words</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="endGamePercentage">0%</div>
+                        <div class="stat-label">Completion</div>
+                    </div>
                 </div>
             </div>
 
@@ -122,11 +151,6 @@
                         <div class="stat-label">Completion</div>
                     </div>
                 </div>
-                <div class="song-revealed">
-                    <h4>Song:</h4>
-                    <p id="giveUpSongTitle"></p>
-                    <p id="giveUpSongArtist"></p>
-                </div>
             </div>
         </div>
     </div>
@@ -139,6 +163,17 @@
             <div class="confirmation-modal-buttons">
                 <button id="confirmGiveUpBtn" class="btn-confirm">Yes, Give Up</button>
                 <button id="cancelGiveUpBtn" class="btn-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="confirmation-modal-overlay">
+        <div class="confirmation-modal help-modal">
+            <h3 id="helpModalTitle">Help</h3>
+            <div id="helpModalContent" class="help-content"></div>
+            <div class="confirmation-modal-buttons">
+                <button id="closeHelpBtn" class="btn-confirm" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">Got it</button>
             </div>
         </div>
     </div>

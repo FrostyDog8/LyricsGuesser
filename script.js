@@ -17,45 +17,51 @@ let gameState = {
     lyricsRevealed: false, // Track if lyrics are currently revealed
     isSurpriseSong: false, // Track if this is a surprise song
     titleRevealed: false, // Track if song title is revealed
-    surpriseArtistName: '' // When set, Next Song picks another random song by this artist
+    yearRevealed: false, // Track if song year is revealed
+    yearRevealedBySong: false, // Track if year was revealed because song was revealed (vs manual reveal)
+    surpriseArtistName: '', // When set, Next Song picks another random song by this artist
+    requestedArtistName: '' // The original artist name requested by user (for display in banner, without collaborations)
 };
 
-// Initialize the game
-document.addEventListener('DOMContentLoaded', () => {
-    const wordInput = document.getElementById('wordInput');
-    const playAgainBtn = document.getElementById('playAgainBtn');
-    const devModeBtn = document.getElementById('devModeBtn');
+// Initialize the game – attach lobby buttons so they always work
+function initLobbyButtons() {
     const startBtn = document.getElementById('startBtn');
     const songInput = document.getElementById('songInput');
     const surpriseBtn = document.getElementById('surpriseBtn');
+    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
+    const artistInput = document.getElementById('artistInput');
+    if (startBtn) startBtn.addEventListener('click', startGame);
+    if (songInput) songInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') startGame(); });
+    if (surpriseBtn) surpriseBtn.addEventListener('click', surpriseMe);
+    if (surpriseByArtistBtn) surpriseByArtistBtn.addEventListener('click', surpriseByArtist);
+    if (artistInput) artistInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') surpriseByArtist(); });
+}
+
+// Run when DOM is ready (handles both late and already-ready)
+function onDomReady(fn) {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fn);
+    } else {
+        fn();
+    }
+}
+
+onDomReady(() => {
+    // Attach lobby button listeners first so they always work
+    initLobbyButtons();
+
+    const wordInput = document.getElementById('wordInput');
+    const playAgainBtn = document.getElementById('playAgainBtn');
+    const devModeBtn = document.getElementById('devModeBtn');
     
     // Dev mode toggle
     if (devModeBtn) {
         devModeBtn.addEventListener('click', toggleDevMode);
     }
-    updateDevModeUI();
-    
-    // Game controls
-    if (startBtn) {
-        startBtn.addEventListener('click', startGame);
-    }
-    if (songInput) {
-        songInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') startGame();
-        });
-    }
-    if (surpriseBtn) {
-        surpriseBtn.addEventListener('click', surpriseMe);
-    }
-    const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
-    const artistInput = document.getElementById('artistInput');
-    if (surpriseByArtistBtn) {
-        surpriseByArtistBtn.addEventListener('click', surpriseByArtist);
-    }
-    if (artistInput && artistInput.addEventListener) {
-        artistInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') surpriseByArtist();
-        });
+    try {
+        updateDevModeUI();
+    } catch (e) {
+        console.warn('updateDevModeUI failed:', e);
     }
     
     // Preload a random surprise song in the background so it's ready when user clicks "Surprise Me"
@@ -110,6 +116,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (revealTitleBtn) {
         revealTitleBtn.addEventListener('click', toggleSongTitle);
     }
+    
+    const revealYearBtn = document.getElementById('revealYearBtn');
+    if (revealYearBtn) {
+        revealYearBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleYear();
+        });
+    } else {
+        console.warn('revealYearBtn not found during initialization');
+    }
 
     const nextSongBtn = document.getElementById('nextSongBtn');
     if (nextSongBtn) {
@@ -122,10 +139,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset game state
         gameState.isSurpriseSong = false;
         gameState.surpriseArtistName = '';
+        gameState.requestedArtistName = '';
         preloadedArtistSongs = [];
         preloadedArtistName = '';
         gameState.titleRevealed = false;
+        gameState.yearRevealed = false;
+        gameState.yearRevealedBySong = false;
         gameState.lyricsRevealed = false;
+        
+        // Hide help button in game area
+        const helpGameplayBtnGame = document.getElementById('helpGameplayBtnGame');
+        if (helpGameplayBtnGame) helpGameplayBtnGame.style.display = 'none';
+        
+        // Hide artist mode banner
+        const artistModeBanner = document.getElementById('artistModeBanner');
+        if (artistModeBanner) artistModeBanner.style.display = 'none';
         
         // Reset UI elements
         const revealTitleBtn = document.getElementById('revealTitleBtn');
@@ -158,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset button states
         const startBtn = document.getElementById('startBtn');
         const surpriseBtn = document.getElementById('surpriseBtn');
+        const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
         if (startBtn) {
             startBtn.innerHTML = 'Start Game';
             startBtn.disabled = false;
@@ -166,12 +195,110 @@ document.addEventListener('DOMContentLoaded', () => {
             surpriseBtn.innerHTML = '🎲 Surprise Me!';
             surpriseBtn.disabled = false;
         }
+        if (surpriseByArtistBtn) {
+            surpriseByArtistBtn.innerHTML = '🎤 Random Song';
+            surpriseByArtistBtn.disabled = false;
+        }
         });
     }
 
     const giveUpBtn = document.getElementById('giveUpBtn');
     if (giveUpBtn) {
         giveUpBtn.addEventListener('click', showGiveUpConfirmation);
+    }
+
+    // Help modal handlers
+    const helpModal = document.getElementById('helpModal');
+    const closeHelpBtn = document.getElementById('closeHelpBtn');
+    const helpSurpriseBtn = document.getElementById('helpSurpriseBtn');
+    const helpArtistBtn = document.getElementById('helpArtistBtn');
+    const helpGameplayBtn = document.getElementById('helpGameplayBtn');
+
+    if (closeHelpBtn) {
+        closeHelpBtn.addEventListener('click', () => {
+            if (helpModal) helpModal.classList.remove('show');
+        });
+    }
+    if (helpModal) {
+        helpModal.addEventListener('click', (e) => {
+            if (e.target === helpModal) {
+                helpModal.classList.remove('show');
+            }
+        });
+    }
+    if (helpSurpriseBtn) {
+        helpSurpriseBtn.addEventListener('click', () => {
+            showHelp('Surprise Me Mode', `
+                <p><strong>Surprise Me</strong> gives you a random popular song from our curated list.</p>
+                <h4>How it works:</h4>
+                <ul>
+                    <li>Click "Surprise Me!" to get a random song</li>
+                    <li>The song title and artist are hidden until you complete the lyrics</li>
+                    <li>Use "Reveal Song" to see what song you're playing</li>
+                    <li>Use "Next Song" to skip to another random song</li>
+                </ul>
+                <p>Perfect for testing your general music knowledge!</p>
+            `);
+        });
+    }
+    if (helpArtistBtn) {
+        helpArtistBtn.addEventListener('click', () => {
+            showHelp('Surprise by Artist Mode', `
+                <p><strong>Surprise by Artist</strong> gives you random songs from a specific artist.</p>
+                <h4>How it works:</h4>
+                <ul>
+                    <li>Enter an artist name and click "Random Song"</li>
+                    <li>You'll get a random song by that artist</li>
+                    <li>The song title is hidden until you complete it</li>
+                    <li>Use "Next Song" to get another song by the same artist</li>
+                </ul>
+                <p>Perfect for testing your knowledge of a specific artist!</p>
+            `);
+        });
+    }
+    // Help button in setup area
+    if (helpGameplayBtn) {
+        helpGameplayBtn.addEventListener('click', () => {
+            showHelp('How to Play', `
+                <p>Type words that appear in the song lyrics to reveal them!</p>
+                <h4>Gameplay:</h4>
+                <ul>
+                    <li><strong>Type words:</strong> Enter any word from the song. If it's in the lyrics, all instances will be revealed</li>
+                    <li><strong>Multiple words:</strong> You can type multiple words at once, separated by spaces</li>
+                    <li><strong>Reveal Song:</strong> Click to see the song title and artist (hidden in surprise modes)</li>
+                    <li><strong>Give Up:</strong> Ends the game and shows your progress</li>
+                </ul>
+                <h4>Tips:</h4>
+                <ul>
+                    <li>Start with common words like "the", "and", "you", "I"</li>
+                    <li>Look for repeated words or phrases</li>
+                    <li>Try words that might appear in the chorus</li>
+                </ul>
+            `);
+        });
+    }
+    
+    const helpGameplayBtnGame = document.getElementById('helpGameplayBtnGame');
+    if (helpGameplayBtnGame) {
+        helpGameplayBtnGame.addEventListener('click', () => {
+            showHelp('How to Play', `
+                <p>Type words that appear in the song lyrics to reveal them!</p>
+                <h4>Gameplay:</h4>
+                <ul>
+                    <li><strong>Type words:</strong> Enter any word from the song. If it's in the lyrics, all instances will be revealed</li>
+                    <li><strong>Multiple words:</strong> You can type multiple words at once, separated by spaces</li>
+                    <li><strong>Reveal Song:</strong> Click to see the song title and artist (hidden in surprise modes)</li>
+                    <li><strong>Reveal Year:</strong> Click to see the song's year (hidden in surprise modes)</li>
+                    <li><strong>Give Up:</strong> Ends the game and shows your progress</li>
+                </ul>
+                <h4>Tips:</h4>
+                <ul>
+                    <li>Start with common words like "the", "and", "you", "I"</li>
+                    <li>Look for repeated words or phrases</li>
+                    <li>Try words that might appear in the chorus</li>
+                </ul>
+            `);
+        });
     }
 
     const confirmGiveUpBtn = document.getElementById('confirmGiveUpBtn');
@@ -203,6 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
             songSelectionOverlay.style.display = 'none';
             const startBtn = document.getElementById('startBtn');
             const surpriseBtn = document.getElementById('surpriseBtn');
+            const surpriseByArtistBtn = document.getElementById('surpriseByArtistBtn');
             if (startBtn) {
                 startBtn.innerHTML = 'Start Game';
                 startBtn.disabled = false;
@@ -210,6 +338,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (surpriseBtn) {
                 surpriseBtn.innerHTML = '🎲 Surprise Me!';
                 surpriseBtn.disabled = false;
+            }
+            if (surpriseByArtistBtn) {
+                surpriseByArtistBtn.innerHTML = '🎤 Random Song';
+                surpriseByArtistBtn.disabled = false;
             }
         });
         // Close on backdrop click
@@ -989,7 +1121,13 @@ async function nextSurpriseSong() {
         if (preloadedArtist && preloadedArtist.lyrics && preloadedArtist.lyrics.trim().length >= 50) {
             const key = `${preloadedArtist.title.toLowerCase()}_${preloadedArtist.artist.toLowerCase()}`;
             triedSongsInSession.add(key);
-            initializeGame(preloadedArtist.lyrics, preloadedArtist.title, preloadedArtist.artist, true);
+            // Set actual artist name from the song (for matching)
+            gameState.surpriseArtistName = preloadedArtist.artist;
+            // Keep requested artist name if already set, otherwise use the song artist
+            if (!gameState.requestedArtistName) {
+                gameState.requestedArtistName = preloadedArtist.artist;
+            }
+            initializeGame(preloadedArtist.lyrics, preloadedArtist.title, preloadedArtist.artist, true, preloadedArtist.year || null, preloadedArtist.rank || null, preloadedArtist.topK || null);
             updateFailedSongsDisplay(globalFailedSongs);
             document.getElementById('gameArea').style.display = 'block';
             const wordInputEl = document.getElementById('wordInput');
@@ -1015,13 +1153,36 @@ async function nextSurpriseSong() {
             }
             song = pool[Math.floor(Math.random() * pool.length)];
             triedSongsInSession.add(`${song.title.toLowerCase()}_${song.artist.toLowerCase()}`);
+            // Set actual artist name from the song (for matching)
+            gameState.surpriseArtistName = song.artist;
+            // Keep requested artist name if already set
+            if (!gameState.requestedArtistName) {
+                gameState.requestedArtistName = song.artist;
+            }
+            
+            // Try to get year from static database
+            let songYear = song.year || null;
+            if (!songYear) {
+                try {
+                    const db = await loadStaticSongsDb();
+                    const match = db.find(s => 
+                        s.title.toLowerCase() === song.title.toLowerCase() && 
+                        s.artist.toLowerCase() === song.artist.toLowerCase()
+                    );
+                    if (match && match.year) {
+                        songYear = match.year;
+                    }
+                } catch (e) {
+                    // If we can't load the database, continue without year
+                }
+            }
         } else {
             song = await getRandomPopularSong();
         }
         const lyrics = await fetchLyrics(song.title, song.artist);
         if (!lyrics || lyrics.trim().length < 50) throw new Error('No lyrics');
         if (!isLikelyEnglish(lyrics)) throw new Error('Lyrics not English');
-        initializeGame(lyrics, song.title, song.artist, true, song.year || null, song.rank || null, song.topK || null);
+        initializeGame(lyrics, song.title, song.artist, true, songYear || null, song.rank || null, song.topK || null);
         updateFailedSongsDisplay(globalFailedSongs);
         const wordInputEl = document.getElementById('wordInput');
         if (wordInputEl) wordInputEl.focus();
@@ -1038,6 +1199,9 @@ async function nextSurpriseSong() {
 }
 
 function updateFailedSongsDisplay(failedSongs) {
+    if (!Array.isArray(failedSongs)) {
+        failedSongs = [];
+    }
     // Only show failed songs if dev mode is on
     if (!devMode) {
         const failedSongsDiv = document.getElementById('failedSongs');
@@ -1292,8 +1456,27 @@ async function surpriseByArtist() {
         const chosen = pool[Math.floor(Math.random() * pool.length)];
         triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
         try {
-            await loadSong(chosen.title, chosen.artist, true);
-            gameState.surpriseArtistName = artistName;
+            // Store requested artist name for banner display (extract just the requested artist from collaborations)
+            gameState.requestedArtistName = artistName;
+            // Set actual artist name from the song (for matching) BEFORE loading song so initializeGame can detect it
+            gameState.surpriseArtistName = chosen.artist;
+            
+            // Try to get year from static database
+            let songYear = null;
+            try {
+                const db = await loadStaticSongsDb();
+                const match = db.find(s => 
+                    s.title.toLowerCase() === chosen.title.toLowerCase() && 
+                    s.artist.toLowerCase() === chosen.artist.toLowerCase()
+                );
+                if (match && match.year) {
+                    songYear = match.year;
+                }
+            } catch (e) {
+                // If we can't load the database, continue without year
+            }
+            
+            await loadSong(chosen.title, chosen.artist, true, songYear);
             preloadNextArtistSong(); // start preloading more songs by this artist
             surpriseByArtistBtn.innerHTML = '🎤 Random song by artist';
             surpriseByArtistBtn.disabled = false;
@@ -1380,13 +1563,22 @@ async function loadSong(title, artist, isSurprise = false, year = null, rank = n
 
     try {
         // Show loading only on the button that triggered this flow; disable other lobby buttons
+        // Check if this is artist mode (surpriseArtistName is set before loadSong is called)
+        const isArtistMode = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+        
         if (isSurprise) {
-            if (surpriseBtn) {
+            if (isArtistMode && surpriseByArtistBtn) {
+                // Artist mode: show loading on artist button, not surprise button
+                surpriseByArtistBtn.innerHTML = 'Loading lyrics... <span class="loading"></span>';
+                surpriseByArtistBtn.disabled = true;
+            } else if (surpriseBtn) {
+                // Regular surprise mode: show loading on surprise button
                 surpriseBtn.innerHTML = 'Loading lyrics... <span class="loading"></span>';
                 surpriseBtn.disabled = true;
             }
             startBtn.disabled = true;
-            if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
+            if (!isArtistMode && surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
+            if (isArtistMode && surpriseBtn) surpriseBtn.disabled = true;
         } else {
             startBtn.innerHTML = 'Loading lyrics... <span class="loading"></span>';
             startBtn.disabled = true;
@@ -1612,7 +1804,9 @@ function showSongSelection(songs, query) {
             songSelectionOverlay.style.display = 'none';
             try {
                 await loadSong(song.title, song.artist);
-            } catch (_err) {
+            } catch (err) {
+                // Show error message and re-display overlay
+                showError(err.message || 'Could not load lyrics for this song. Please try another one.');
                 songSelectionOverlay.style.display = 'flex';
             }
         });
@@ -1894,6 +2088,11 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
     gameState.lyricsRevealed = false;
     gameState.isSurpriseSong = isSurprise;
     gameState.titleRevealed = !isSurprise; // Hide title if surprise song
+    // Only track year reveal state in surprise mode (not artist mode)
+    const isArtistMode = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    const isSurpriseModeOnly = isSurprise && !isArtistMode;
+    gameState.yearRevealed = !isSurpriseModeOnly; // Hide year if surprise mode (but not artist mode)
+    gameState.yearRevealedBySong = false; // Reset flag
     
     // Reset reveal button
     const revealBtn = document.getElementById('revealBtn');
@@ -1905,25 +2104,38 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
     
     // Reset give up UI
     const giveUpResults = document.getElementById('giveUpResults');
-    if (giveUpResults) {
-        giveUpResults.style.display = 'none';
-    }
+    if (giveUpResults) giveUpResults.style.display = 'none';
+    const inputSection = document.getElementById('inputSection');
+    const endGameStats = document.getElementById('endGameStats');
+    if (inputSection) inputSection.style.display = '';
+    if (endGameStats) { endGameStats.style.display = 'none'; endGameStats.classList.remove('victory'); }
     const giveUpBtn = document.getElementById('giveUpBtn');
     if (giveUpBtn) {
         giveUpBtn.style.display = 'inline-block';
     }
+    
+    // Remove give-up-missed styling from all words
+    document.querySelectorAll('.word-slot.give-up-missed').forEach(slot => {
+        slot.classList.remove('give-up-missed');
+    });
     const wordInput = document.getElementById('wordInput');
     if (wordInput) {
         wordInput.disabled = false;
         wordInput.placeholder = 'Type a word...';
     }
     
+    // Show help button in game area
+    const helpGameplayBtnGame = document.getElementById('helpGameplayBtnGame');
+    if (helpGameplayBtnGame) helpGameplayBtnGame.style.display = 'inline-block';
+    
         // Update dev mode UI to ensure correct visibility (will be called after game loads)
 
     // Update UI
     const songTitleEl = document.getElementById('songTitle');
     const songArtistEl = document.getElementById('songArtist');
+    const songYearEl = document.getElementById('songYear');
     const revealTitleBtn = document.getElementById('revealTitleBtn');
+    const revealYearBtn = document.getElementById('revealYearBtn');
     const youtubeLink = document.getElementById('youtubeLink');
     const nextSongBtn = document.getElementById('nextSongBtn');
     
@@ -1951,6 +2163,86 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
         });
     }
     
+    // Show/hide artist mode banner
+    const artistModeBanner = document.getElementById('artistModeBanner');
+    const artistModeName = document.getElementById('artistModeName');
+    if (gameState.surpriseArtistName && gameState.surpriseArtistName.trim()) {
+        if (artistModeBanner) artistModeBanner.style.display = 'block';
+        if (artistModeName) {
+            // Use requested artist name if available, otherwise use the song artist
+            let displayName = gameState.requestedArtistName || gameState.surpriseArtistName;
+            
+            // If we have a requested artist name and the song artist contains collaborations,
+            // try to extract just the requested artist from the collaboration
+            if (gameState.requestedArtistName && gameState.surpriseArtistName) {
+                const requestedLower = gameState.requestedArtistName.toLowerCase().trim();
+                const songArtist = gameState.surpriseArtistName;
+                const songArtistLower = songArtist.toLowerCase();
+                
+                // Check if song artist contains collaboration markers
+                if (songArtistLower.includes(' & ') || songArtistLower.includes(' feat. ') || 
+                    songArtistLower.includes(' ft. ') || songArtistLower.includes(' featuring ') ||
+                    songArtistLower.includes(', ')) {
+                    // Split by collaboration markers
+                    const parts = songArtist.split(/[&,]/).map(p => 
+                        p.replace(/\s*(feat\.|ft\.|featuring)\s*/gi, '').trim()
+                    );
+                    
+                    // Find the part that matches the requested artist (case-insensitive partial match)
+                    const matchingPart = parts.find(p => {
+                        const pLower = p.toLowerCase().trim();
+                        return pLower.includes(requestedLower) || requestedLower.includes(pLower);
+                    });
+                    
+                    if (matchingPart) {
+                        displayName = matchingPart.trim();
+                    } else {
+                        // If no match found, use the requested name as-is
+                        displayName = gameState.requestedArtistName;
+                    }
+                } else {
+                    // No collaboration markers, use requested name
+                    displayName = gameState.requestedArtistName;
+                }
+            }
+            
+            // Capitalize first letter of each word for better display
+            displayName = displayName.split(' ').map(word => 
+                word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+            ).join(' ');
+            
+            artistModeName.textContent = displayName;
+        }
+    } else {
+        if (artistModeBanner) artistModeBanner.style.display = 'none';
+    }
+
+    // Update year display (only show in surprise mode, not artist mode or specific song mode)
+    // (isArtistMode and isSurpriseModeOnly already declared above in this function)
+    if (songYearEl) {
+        if (isSurpriseModeOnly && year) {
+            // Show year in surprise mode (hidden initially)
+            songYearEl.textContent = '???';
+            songYearEl.classList.add('hidden-year');
+        } else {
+            // Hide year completely in artist mode and specific song mode
+            songYearEl.textContent = '';
+            songYearEl.style.display = 'none';
+        }
+    }
+    
+    // Show/hide reveal year button (only show in surprise mode, not artist mode or specific song mode)
+    if (revealYearBtn) {
+        if (isSurpriseModeOnly && year && !gameState.titleRevealed) {
+            revealYearBtn.style.display = 'inline-block';
+            revealYearBtn.style.visibility = 'visible';
+            revealYearBtn.textContent = gameState.yearRevealed ? 'Hide Year' : 'Reveal Year';
+        } else {
+            revealYearBtn.style.display = 'none';
+            revealYearBtn.style.visibility = 'hidden';
+        }
+    }
+
     if (isSurprise) {
         // Hide song info for surprise songs
         if (songTitleEl) {
@@ -2201,8 +2493,14 @@ function hideLyrics() {
         if (gameState.isSurpriseSong && !gameState.titleRevealed) {
             revealSongTitle();
             const revealTitleBtn = document.getElementById('revealTitleBtn');
+            const revealYearBtn = document.getElementById('revealYearBtn');
             if (revealTitleBtn) {
                 revealTitleBtn.textContent = 'Hide Song';
+            }
+            // Completely hide reveal year button once song is revealed
+            if (revealYearBtn) {
+                revealYearBtn.style.display = 'none';
+                revealYearBtn.style.visibility = 'hidden';
             }
         }
         showVictory();
@@ -2230,6 +2528,40 @@ function toggleSongTitle() {
     }
 }
 
+function toggleYear() {
+    const revealYearBtn = document.getElementById('revealYearBtn');
+    const songYearEl = document.getElementById('songYear');
+    
+    if (!revealYearBtn || !songYearEl) {
+        console.error('revealYearBtn or songYearEl not found');
+        return;
+    }
+    
+    // Only allow toggling if it's a surprise song
+    if (!gameState.isSurpriseSong) {
+        console.log('Not a surprise song, year toggle disabled');
+        return;
+    }
+    
+    if (gameState.yearRevealed) {
+        // Hide year
+        songYearEl.textContent = '???';
+        songYearEl.classList.add('hidden-year');
+        revealYearBtn.textContent = 'Reveal Year';
+        gameState.yearRevealed = false;
+    } else {
+        // Reveal year
+        if (gameState.songYear) {
+            songYearEl.textContent = gameState.songYear;
+            songYearEl.classList.remove('hidden-year');
+            revealYearBtn.textContent = 'Hide Year';
+            gameState.yearRevealed = true;
+        } else {
+            console.log('No year available to reveal');
+        }
+    }
+}
+
 function showGiveUpConfirmation() {
     const modal = document.getElementById('giveUpConfirmationModal');
     if (modal) {
@@ -2247,8 +2579,24 @@ function handleGiveUp() {
     const userFoundCount = gameState.foundCount;
     const totalWords = gameState.totalWords;
     
+    // Store which words were user-guessed before revealing
+    const userGuessedBefore = new Set(gameState.userGuessedWords);
+    
     // Reveal all lyrics
     revealAllLyrics();
+    
+    // Mark missed words (not user-guessed) with special styling
+    gameState.words.forEach((wordObj, index) => {
+        if (!wordObj.isNewline) {
+            const slot = document.querySelector(`.word-slot[data-index="${index}"]`);
+            if (slot && slot.classList.contains('found')) {
+                // If this word wasn't guessed by the user, mark it as missed
+                if (!userGuessedBefore.has(wordObj.normalized)) {
+                    slot.classList.add('give-up-missed');
+                }
+            }
+        }
+    });
     
     // Update gameState.foundCount to reflect all words being found
     gameState.foundCount = gameState.words.filter(w => !w.isNewline).length;
@@ -2260,7 +2608,7 @@ function handleGiveUp() {
         revealBtn.textContent = 'Hide Lyrics';
     }
     
-    // Reveal song title and artist
+    // Reveal song title and artist (this will also reveal the year)
     revealSongTitle();
     const revealTitleBtn = document.getElementById('revealTitleBtn');
     if (revealTitleBtn) {
@@ -2268,50 +2616,65 @@ function handleGiveUp() {
     }
     gameState.titleRevealed = true;
     
-    // Calculate statistics based on user's progress BEFORE revealing
+    // Ensure year is revealed (only in surprise mode, not artist mode or specific song mode)
+    const isArtistMode = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    const isSurpriseModeOnly = gameState.isSurpriseSong && !isArtistMode;
+    
+    if (isSurpriseModeOnly && !gameState.yearRevealed && gameState.songYear) {
+        const songYearEl = document.getElementById('songYear');
+        const revealYearBtn = document.getElementById('revealYearBtn');
+        if (songYearEl) {
+            songYearEl.textContent = gameState.songYear;
+            songYearEl.classList.remove('hidden-year');
+            songYearEl.style.display = ''; // Show it
+            gameState.yearRevealed = true;
+            gameState.yearRevealedBySong = true;
+        }
+        // Hide the reveal year button once song is revealed
+        if (revealYearBtn) {
+            revealYearBtn.style.display = 'none';
+            revealYearBtn.style.visibility = 'hidden';
+        }
+    }
+    
     const percentage = totalWords > 0 ? Math.round((userFoundCount / totalWords) * 100) : 0;
     
-    // Show results
-    const resultsEl = document.getElementById('giveUpResults');
-    const foundCountEl = document.getElementById('giveUpFoundCount');
-    const percentageEl = document.getElementById('giveUpPercentage');
-    const songTitleEl = document.getElementById('giveUpSongTitle');
-    const songArtistEl = document.getElementById('giveUpSongArtist');
+    // Replace input section with end-of-game stats
+    const inputSection = document.getElementById('inputSection');
+    const endGameStats = document.getElementById('endGameStats');
+    const endGameTitle = document.getElementById('endGameStatsTitle');
+    const endGameFound = document.getElementById('endGameFoundCount');
+    const endGameTotal = document.getElementById('endGameTotalCount');
+    const endGamePct = document.getElementById('endGamePercentage');
+    if (inputSection) inputSection.style.display = 'none';
+    if (endGameStats) {
+        endGameStats.classList.remove('victory');
+        endGameStats.style.display = 'block';
+    }
+    if (endGameTitle) endGameTitle.textContent = 'Game Over';
+    if (endGameFound) endGameFound.textContent = userFoundCount;
+    if (endGameTotal) endGameTotal.textContent = totalWords;
+    if (endGamePct) endGamePct.textContent = percentage + '%';
     
-    if (resultsEl) {
-        resultsEl.style.display = 'block';
-    }
-    if (foundCountEl) {
-        foundCountEl.textContent = userFoundCount;
-    }
-    if (percentageEl) {
-        percentageEl.textContent = percentage + '%';
-    }
-    if (songTitleEl) {
-        songTitleEl.textContent = gameState.songTitle || 'Unknown';
-    }
-    if (songArtistEl) {
-        songArtistEl.textContent = gameState.songArtist ? `by ${gameState.songArtist}` : '';
-    }
+    const giveUpResults = document.getElementById('giveUpResults');
+    if (giveUpResults) giveUpResults.style.display = 'none';
     
-    // Disable input
-    const wordInput = document.getElementById('wordInput');
-    if (wordInput) {
-        wordInput.disabled = true;
-        wordInput.placeholder = 'Game Over';
-    }
-    
-    // Hide give up button
     const giveUpBtn = document.getElementById('giveUpBtn');
-    if (giveUpBtn) {
-        giveUpBtn.style.display = 'none';
-    }
+    if (giveUpBtn) giveUpBtn.style.display = 'none';
     
-    // Scroll to results
-    if (resultsEl) {
-        setTimeout(() => {
-            resultsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 100);
+    if (endGameStats) {
+        setTimeout(() => endGameStats.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
+}
+
+function showHelp(title, content) {
+    const helpModal = document.getElementById('helpModal');
+    const helpModalTitle = document.getElementById('helpModalTitle');
+    const helpModalContent = document.getElementById('helpModalContent');
+    if (helpModal && helpModalTitle && helpModalContent) {
+        helpModalTitle.textContent = title;
+        helpModalContent.innerHTML = content;
+        helpModal.classList.add('show');
     }
 }
 
@@ -2444,6 +2807,34 @@ function revealSongTitle() {
     songArtistEl.classList.remove('hidden-artist');
     gameState.titleRevealed = true;
     
+    // Also reveal year if it's hidden (only in surprise mode, not artist mode)
+    const isArtistMode = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    const isSurpriseModeOnly = gameState.isSurpriseSong && !isArtistMode;
+    
+    if (isSurpriseModeOnly && !gameState.yearRevealed && gameState.songYear) {
+        const songYearEl = document.getElementById('songYear');
+        const revealYearBtn = document.getElementById('revealYearBtn');
+        if (songYearEl) {
+            songYearEl.textContent = gameState.songYear;
+            songYearEl.classList.remove('hidden-year');
+            songYearEl.style.display = ''; // Show it
+            gameState.yearRevealed = true;
+            gameState.yearRevealedBySong = true; // Mark that year was revealed because song was revealed
+        }
+        // Hide the reveal year button once song is revealed
+        if (revealYearBtn) {
+            revealYearBtn.style.display = 'none';
+            revealYearBtn.style.visibility = 'hidden';
+        }
+    } else {
+        // Even if year was already revealed, hide the button when song is revealed
+        const revealYearBtn = document.getElementById('revealYearBtn');
+        if (revealYearBtn) {
+            revealYearBtn.style.display = 'none';
+            revealYearBtn.style.visibility = 'hidden';
+        }
+    }
+    
     // Show YouTube link when title is revealed
     if (youtubeLink) {
         const searchQuery = `${gameState.songTitle} ${gameState.songArtist || ''}`.trim();
@@ -2480,6 +2871,33 @@ function hideSongTitle() {
     songArtistEl.classList.add('hidden-artist');
     if (youtubeLink) youtubeLink.style.display = 'none';
     gameState.titleRevealed = false;
+    
+    // In surprise-only mode: restore year display and always show Reveal/Hide Year button again
+    const isArtistMode = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    const isSurpriseModeOnly = gameState.isSurpriseSong && !isArtistMode;
+    const songYearEl = document.getElementById('songYear');
+    const revealYearBtn = document.getElementById('revealYearBtn');
+    
+    if (isSurpriseModeOnly && gameState.songYear) {
+        // If year was revealed because song was revealed, hide year again and reset flags
+        if (gameState.yearRevealedBySong) {
+            if (songYearEl) {
+                songYearEl.textContent = '???';
+                songYearEl.classList.add('hidden-year');
+            }
+            gameState.yearRevealed = false;
+            gameState.yearRevealedBySong = false;
+        }
+        // Always show the Reveal/Hide Year button again when re-hiding song in surprise mode
+        if (revealYearBtn) {
+            revealYearBtn.style.display = 'inline-block';
+            revealYearBtn.style.visibility = 'visible';
+            revealYearBtn.textContent = gameState.yearRevealed ? 'Hide Year' : 'Reveal Year';
+        }
+    } else if (revealYearBtn) {
+        revealYearBtn.style.display = 'none';
+        revealYearBtn.style.visibility = 'hidden';
+    }
 }
 
 function checkWord(inputWord, shouldClearInput = false) {
@@ -2581,14 +2999,26 @@ function revealWord(normalizedWord, indices) {
 }
 
 function showVictory() {
+    const totalWords = gameState.words.filter(w => !w.isNewline).length;
+    const inputSection = document.getElementById('inputSection');
+    const endGameStats = document.getElementById('endGameStats');
+    const endGameTitle = document.getElementById('endGameStatsTitle');
+    const endGameFound = document.getElementById('endGameFoundCount');
+    const endGameTotal = document.getElementById('endGameTotalCount');
+    const endGamePct = document.getElementById('endGamePercentage');
+    if (inputSection) inputSection.style.display = 'none';
+    if (endGameStats) {
+        endGameStats.classList.add('victory');
+        endGameStats.style.display = 'block';
+    }
+    if (endGameTitle) endGameTitle.textContent = 'You did it!';
+    if (endGameFound) endGameFound.textContent = totalWords;
+    if (endGameTotal) endGameTotal.textContent = totalWords;
+    if (endGamePct) endGamePct.textContent = '100%';
     document.getElementById('victoryMessage').style.display = 'block';
-    document.getElementById('wordInput').disabled = true;
-    
-    // Scroll to victory message
-    document.getElementById('victoryMessage').scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'center' 
-    });
+    if (endGameStats) {
+        setTimeout(() => endGameStats.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+    }
 }
 
 function showError(message) {
