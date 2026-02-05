@@ -648,6 +648,147 @@ header h1 {
     transform: translateY(0);
 }
 
+.btn-give-up {
+    margin-bottom: 0;
+    padding: 10px 20px;
+    font-size: 0.9em;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+    transition: all 0.25s ease;
+}
+.btn-give-up:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.45);
+}
+.btn-give-up:active {
+    transform: translateY(0);
+}
+
+/* Confirmation Modal */
+.confirmation-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    animation: fadeIn 0.2s ease;
+}
+.confirmation-modal-overlay.show {
+    display: flex;
+}
+.confirmation-modal {
+    background: white;
+    border-radius: 16px;
+    padding: 30px;
+    max-width: 450px;
+    width: 90%;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.3s ease;
+}
+.confirmation-modal h3 {
+    margin: 0 0 15px 0;
+    color: #1f2937;
+    font-size: 1.4em;
+}
+.confirmation-modal p {
+    margin: 0 0 25px 0;
+    color: #6b7280;
+    line-height: 1.6;
+}
+.confirmation-modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+}
+.confirmation-modal-buttons button {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95em;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.confirmation-modal-buttons .btn-confirm {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: white;
+}
+.confirmation-modal-buttons .btn-confirm:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-1px);
+}
+.confirmation-modal-buttons .btn-cancel {
+    background: #f3f4f6;
+    color: #374151;
+}
+.confirmation-modal-buttons .btn-cancel:hover {
+    background: #e5e7eb;
+}
+
+/* Results Display */
+.give-up-results {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 12px;
+    padding: 25px;
+    margin: 20px 0;
+    text-align: center;
+}
+.give-up-results h3 {
+    margin: 0 0 15px 0;
+    color: #92400e;
+    font-size: 1.3em;
+}
+.give-up-results .results-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin: 20px 0;
+    flex-wrap: wrap;
+}
+.give-up-results .stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.give-up-results .stat-value {
+    font-size: 2em;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 5px;
+}
+.give-up-results .stat-label {
+    font-size: 0.9em;
+    color: #78350f;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.give-up-results .song-revealed {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 2px solid #fbbf24;
+}
+.give-up-results .song-revealed h4 {
+    margin: 0 0 10px 0;
+    color: #78350f;
+    font-size: 1.1em;
+}
+.give-up-results .song-revealed p {
+    margin: 5px 0;
+    color: #92400e;
+    font-size: 1em;
+}
+
 /* Brief animation when the song is refreshed (Next Song) */
 .lyrics-table-container.song-refresh {
     animation: songRefresh 0.45s ease;

@@ -169,6 +169,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const giveUpBtn = document.getElementById('giveUpBtn');
+    if (giveUpBtn) {
+        giveUpBtn.addEventListener('click', showGiveUpConfirmation);
+    }
+
+    const confirmGiveUpBtn = document.getElementById('confirmGiveUpBtn');
+    const cancelGiveUpBtn = document.getElementById('cancelGiveUpBtn');
+    const giveUpConfirmationModal = document.getElementById('giveUpConfirmationModal');
+    if (confirmGiveUpBtn) {
+        confirmGiveUpBtn.addEventListener('click', handleGiveUp);
+    }
+    if (cancelGiveUpBtn) {
+        cancelGiveUpBtn.addEventListener('click', () => {
+            if (giveUpConfirmationModal) {
+                giveUpConfirmationModal.classList.remove('show');
+            }
+        });
+    }
+    // Close modal when clicking outside
+    if (giveUpConfirmationModal) {
+        giveUpConfirmationModal.addEventListener('click', (e) => {
+            if (e.target === giveUpConfirmationModal) {
+                giveUpConfirmationModal.classList.remove('show');
+            }
+        });
+    }
+
     const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
     const songSelectionOverlay = document.getElementById('songSelectionOverlay');
     if (cancelSelectionBtn && songSelectionOverlay) {
@@ -268,7 +295,8 @@ function updateDevModeUI() {
                     'apple': 'Apple chart',
                     'itunes-yearly': 'iTunes (yearly)',
                     'itunes-optimized': 'iTunes (optimized)',
-                    'itunes': 'iTunes Search'
+                    'itunes': 'iTunes Search',
+                    'static-db': 'Static database'
                 };
                 parts.push('Source: ' + (sourceMap[chartSource] || 'iTunes Search'));
             }
@@ -302,6 +330,7 @@ function updateDevModeUI() {
 // Get a free API key at https://www.last.fm/api/account/create
 const LASTFM_API_KEY = '072e57491a78cfaf62abffd5bf5429a4'; // optional: set for Last.fm chart + playcount threshold
 const POPULARITY_MIN_PLAYCOUNT = 20000000; // minimum Last.fm scrobbles – 20M
+
 const CHART_CACHE_MS = 60 * 60 * 1000;     // 1 hour
 const CHART_MIN_ELIGIBLE = 300;
 const CHART_PAGE_SIZE = 500;
@@ -309,6 +338,32 @@ let chartSongsCache = null;
 let chartSongsCacheTime = 0;
 /** Set by getChartSongs(): 'lastfm' | 'apple' | 'itunes' – for dev mode display. */
 let chartSource = null;
+
+/** Static song database: flat list of { title, artist, year }. Source: embedded-songs.js (file:// and live) or songs-by-year.json (fetch when served). */
+let staticSongsDb = null;
+
+/** Load static songs DB once. Uses embedded list if present (works locally file:// and live), else fetches songs-by-year.json. */
+async function loadStaticSongsDb() {
+    if (staticSongsDb) return staticSongsDb;
+    if (typeof window !== 'undefined' && window.EMBEDDED_SONGS_DB && Array.isArray(window.EMBEDDED_SONGS_DB) && window.EMBEDDED_SONGS_DB.length > 0) {
+        staticSongsDb = window.EMBEDDED_SONGS_DB;
+        return staticSongsDb;
+    }
+    const jsonUrl = new URL('songs-by-year.json', document.baseURI || window.location.href).href;
+    const res = await fetch(jsonUrl);
+    if (!res.ok) throw new Error('Could not load song database');
+    const byYear = await res.json();
+    const flat = [];
+    for (const [year, list] of Object.entries(byYear)) {
+        const y = parseInt(year, 10);
+        if (!Array.isArray(list)) continue;
+        for (const s of list) {
+            if (s && s.title && s.artist) flat.push({ title: String(s.title).trim(), artist: String(s.artist).trim(), year: y });
+        }
+    }
+    staticSongsDb = flat;
+    return staticSongsDb;
+}
 
 /** Fetch one page of Last.fm chart.getTopTracks via CORS proxy. Returns { track: { name, artist: { name }, playcount } }[]. */
 async function fetchLastFmChartPage(page) {
@@ -518,14 +573,32 @@ async function getRandomPopularSongOld() {
     return { title: chosen.title, artist: chosen.artist, year: chosen.year || null };
 }
 
-/** Optimized: Pick a random song by selecting weighted random year, then fetching only that year's songs. */
+/** Pick a random song from the static database (songs-by-year.json). Falls back to API if DB unavailable (e.g. when opening index.html via file://). */
 async function getRandomPopularSong() {
-    const song = await getRandomPopularSongOptimized();
-    // Set chartSource for dev mode display
-    if (!chartSource) {
-        chartSource = 'itunes-optimized';
+    try {
+        const db = await loadStaticSongsDb();
+        if (!db || db.length === 0) throw new Error('Empty database');
+        let pool = db.filter(s => !triedSongsInSession.has(`${s.title.toLowerCase()}_${s.artist.toLowerCase()}`));
+        if (pool.length === 0) {
+            triedSongsInSession.clear();
+            pool = db;
+        }
+        const chosen = pool[Math.floor(Math.random() * pool.length)];
+        triedSongsInSession.add(`${chosen.title.toLowerCase()}_${chosen.artist.toLowerCase()}`);
+        chartSource = 'static-db';
+        return {
+            title: chosen.title,
+            artist: chosen.artist,
+            year: chosen.year,
+            rank: null,
+            topK: null
+        };
+    } catch (e) {
+        console.warn('Static song DB unavailable, using API fallback:', e.message || e);
+        const song = await getRandomPopularSongOptimized();
+        if (!chartSource) chartSource = 'itunes-optimized';
+        return song;
     }
-    return song;
 }
 
 /** Optimized version: Select random year weighted by song counts, then fetch only that year's songs. Retries with new year if fetch fails. */
@@ -753,8 +826,8 @@ let globalFailedSongs = [];
 // Track songs tried in current surprise session to avoid duplicates
 let triedSongsInSession = new Set();
 
-// Preload up to 3 surprise songs in background, one at a time (user can take one before all 3 are ready)
-const PRELOAD_QUEUE_MAX = 3;
+// Preload up to 5 surprise songs in background, one at a time (user can take one before all 5 are ready)
+const PRELOAD_QUEUE_MAX = 5;
 let preloadedSurpriseSongs = []; // { title, artist, lyrics }[]
 let preloadInProgress = false;
 /** When true, background preload is paused so the user's chosen song loads with immediate priority. */
@@ -1418,7 +1491,7 @@ function countSpanishWords(text) {
     return count;
 }
 
-/** True if text looks like English. Rejects non-Latin scripts; rejects Spanish only if 5+ Spanish words. */
+/** True if text looks like English. Rejects non-Latin scripts; rejects Spanish only if enough Spanish words (stricter for short text). */
 function isLikelyEnglish(text) {
     if (!text || typeof text !== 'string') return true;
     // Strong Spanish indicators in any amount (title/artist or lyrics with punctuation)
@@ -1426,8 +1499,10 @@ function isLikelyEnglish(text) {
     // Non-Latin scripts (CJK, Korean Hangul, Cyrillic, Arabic, Hebrew, Thai, Greek, etc.)
     const nonLatin = /[\u0400-\u04FF\u0600-\u06FF\u0590-\u05FF\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF\uAC00-\uD7AF\u1100-\u11FF\u0E00-\u0E7F\u0370-\u03FF]/;
     if (nonLatin.test(text)) return false;
-    // Spanish: only reject if at least 5 Spanish words (whole-word match) to avoid one-off false positives
-    if (countSpanishWords(text) >= 5) return false;
+    // Short text (title/artist): skip Spanish word count to avoid false positives (e.g. "Queen", "Bohemian Rhapsody")
+    if (text.length < 150) return true;
+    // Long text (lyrics): reject only if 10+ Spanish words to avoid banning English songs with a few shared words
+    if (countSpanishWords(text) >= 10) return false;
     return true;
 }
 
@@ -1828,6 +1903,21 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
         revealBtn.style.display = devMode ? 'inline-block' : 'none';
     }
     
+    // Reset give up UI
+    const giveUpResults = document.getElementById('giveUpResults');
+    if (giveUpResults) {
+        giveUpResults.style.display = 'none';
+    }
+    const giveUpBtn = document.getElementById('giveUpBtn');
+    if (giveUpBtn) {
+        giveUpBtn.style.display = 'inline-block';
+    }
+    const wordInput = document.getElementById('wordInput');
+    if (wordInput) {
+        wordInput.disabled = false;
+        wordInput.placeholder = 'Type a word...';
+    }
+    
         // Update dev mode UI to ensure correct visibility (will be called after game loads)
 
     // Update UI
@@ -1967,7 +2057,11 @@ function normalizeWord(word) {
 }
 
 /** Normalized "oh"-style words: guessing any of these reveals all of them in the lyrics. */
-const OH_VARIANTS = new Set(['oh', 'ooh', 'ohh', 'oooh', 'ohhh', 'oohh', 'ooooh', 'ohhhh', 'oohoh']);
+const OH_VARIANTS = new Set([
+    'oh', 'ooh', 'ohh', 'oooh', 'ohhh', 'oohh', 'ooooh', 'ohhhh', 'oohoh',
+    'ah', 'ahh', 'aah', 'ahhh', 'aaah', 'ahhhh', 'aahh', 'ahah',
+    'uh', 'uhh', 'uuh', 'uhhh', 'uuuh', 'uhhhh', 'uuhh', 'uhuh'
+]);
 
 function createLyricsTable(words) {
     const table = document.getElementById('lyricsTable');
@@ -2135,6 +2229,92 @@ function toggleSongTitle() {
         gameState.titleRevealed = true;
     }
 }
+
+function showGiveUpConfirmation() {
+    const modal = document.getElementById('giveUpConfirmationModal');
+    if (modal) {
+        modal.classList.add('show');
+    }
+}
+
+function handleGiveUp() {
+    const modal = document.getElementById('giveUpConfirmationModal');
+    if (modal) {
+        modal.classList.remove('show');
+    }
+    
+    // Store the count BEFORE revealing (user's actual progress)
+    const userFoundCount = gameState.foundCount;
+    const totalWords = gameState.totalWords;
+    
+    // Reveal all lyrics
+    revealAllLyrics();
+    
+    // Update gameState.foundCount to reflect all words being found
+    gameState.foundCount = gameState.words.filter(w => !w.isNewline).length;
+    
+    // Set lyrics as revealed
+    gameState.lyricsRevealed = true;
+    const revealBtn = document.getElementById('revealBtn');
+    if (revealBtn) {
+        revealBtn.textContent = 'Hide Lyrics';
+    }
+    
+    // Reveal song title and artist
+    revealSongTitle();
+    const revealTitleBtn = document.getElementById('revealTitleBtn');
+    if (revealTitleBtn) {
+        revealTitleBtn.style.display = 'none';
+    }
+    gameState.titleRevealed = true;
+    
+    // Calculate statistics based on user's progress BEFORE revealing
+    const percentage = totalWords > 0 ? Math.round((userFoundCount / totalWords) * 100) : 0;
+    
+    // Show results
+    const resultsEl = document.getElementById('giveUpResults');
+    const foundCountEl = document.getElementById('giveUpFoundCount');
+    const percentageEl = document.getElementById('giveUpPercentage');
+    const songTitleEl = document.getElementById('giveUpSongTitle');
+    const songArtistEl = document.getElementById('giveUpSongArtist');
+    
+    if (resultsEl) {
+        resultsEl.style.display = 'block';
+    }
+    if (foundCountEl) {
+        foundCountEl.textContent = userFoundCount;
+    }
+    if (percentageEl) {
+        percentageEl.textContent = percentage + '%';
+    }
+    if (songTitleEl) {
+        songTitleEl.textContent = gameState.songTitle || 'Unknown';
+    }
+    if (songArtistEl) {
+        songArtistEl.textContent = gameState.songArtist ? `by ${gameState.songArtist}` : '';
+    }
+    
+    // Disable input
+    const wordInput = document.getElementById('wordInput');
+    if (wordInput) {
+        wordInput.disabled = true;
+        wordInput.placeholder = 'Game Over';
+    }
+    
+    // Hide give up button
+    const giveUpBtn = document.getElementById('giveUpBtn');
+    if (giveUpBtn) {
+        giveUpBtn.style.display = 'none';
+    }
+    
+    // Scroll to results
+    if (resultsEl) {
+        setTimeout(() => {
+            resultsEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+}
+
 
 async function getYouTubeVideoUrl(title, artist) {
     // Get a direct YouTube video link by extracting the first video from search results
@@ -2308,7 +2488,7 @@ function checkWord(inputWord, shouldClearInput = false) {
     const normalizedInput = normalizeWord(inputWord);
     if (normalizedInput.length === 0) return false;
     
-    // Special case: "oh" / "ooh" / "ohh" etc. – guessing any variant reveals all variants in the lyrics
+    // Special case: "oh" / "ooh" / "ah" / "uh" etc. – guessing any variant reveals all variants in the lyrics
     if (OH_VARIANTS.has(normalizedInput)) {
         const ohMatches = [];
         gameState.words.forEach((wordObj, index) => {

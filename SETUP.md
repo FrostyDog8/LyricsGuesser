@@ -36,7 +36,8 @@ You'll be asked for your GitHub username and password (use a Personal Access Tok
 
 ### Work Locally
 - Edit files normally
-- Test by opening `index.html` in browser
+- Open `index.html` in your browser (double-click or drag into browser). Surprise Me uses the curated list from `embedded-songs.js`.
+- **After editing `songs-by-year.json`:** run `node build-embedded-songs.js` to update `embedded-songs.js`, then commit both files.
 - Nothing changes on the live site until you push
 
 ### Update Live Site (When Ready)

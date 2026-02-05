@@ -167,6 +167,7 @@ Works best in modern browsers (Chrome, Firefox, Safari, Edge) that support:
 
 ## Version History
 
+- **v1.2**: Curated song list (songs-by-year.json), embedded list for local + live, Surprise Me uses curated list, preload limit 5
 - **v1.1**: Optimized song selection with year-based fetching, dev mode improvements (year/rank/source display)
 - **v1.0**: Initial release with core gameplay features
 

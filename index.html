@@ -8,11 +8,11 @@
 </head>
 <body>
     <div class="container">
-        <p class="version-sign">v1.1</p>
+        <p class="version-sign">v1.2</p>
         <div class="dev-mode-row">
             <button id="devModeBtn" class="btn btn-dev-mode" title="Toggle Developer Mode">🔧</button>
-            <span id="preloadCounter" class="preload-counter" style="display: none;" title="Preloaded surprise songs ready">Songs ready: <strong id="preloadCount">0</strong> / 3</span>
-            <span id="preloadArtistCounter" class="preload-counter" style="display: none;" title="Preloaded songs by current artist">Artist: <strong id="preloadArtistCount">0</strong> / 3</span>
+            <span id="preloadCounter" class="preload-counter" style="display: none;" title="Preloaded surprise songs ready">Songs ready: <strong id="preloadCount">0</strong> / 5</span>
+            <span id="preloadArtistCounter" class="preload-counter" style="display: none;" title="Preloaded songs by current artist">Artist: <strong id="preloadArtistCount">0</strong> / 5</span>
         </div>
         <header>
             <h1>🎵 Lyrics Puzzle</h1>
@@ -66,6 +66,7 @@
         <div class="game-area" id="gameArea" style="display: none;">
             <div class="game-area-top-bar">
                 <button id="backBtn" class="btn btn-secondary back-btn">← Back to Main</button>
+                <button id="giveUpBtn" class="btn btn-give-up">Give Up</button>
                 <button id="nextSongBtn" class="btn btn-secondary next-song-btn" style="display: none;" title="Skip to next random song">Next Song →</button>
             </div>
             <div id="failedSongsGame" class="failed-songs" style="display: none;">
@@ -108,9 +109,41 @@
                 <p>You've guessed the entire song!</p>
                 <button id="playAgainBtn" class="btn btn-primary">Play Again</button>
             </div>
+
+            <div id="giveUpResults" class="give-up-results" style="display: none;">
+                <h3>Game Over</h3>
+                <div class="results-stats">
+                    <div class="stat-item">
+                        <div class="stat-value" id="giveUpFoundCount">0</div>
+                        <div class="stat-label">Words Found</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value" id="giveUpPercentage">0%</div>
+                        <div class="stat-label">Completion</div>
+                    </div>
+                </div>
+                <div class="song-revealed">
+                    <h4>Song:</h4>
+                    <p id="giveUpSongTitle"></p>
+                    <p id="giveUpSongArtist"></p>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Confirmation Modal -->
+    <div id="giveUpConfirmationModal" class="confirmation-modal-overlay">
+        <div class="confirmation-modal">
+            <h3>Are you sure?</h3>
+            <p>Are you sure you want to give up? This will end the current game and reveal all lyrics.</p>
+            <div class="confirmation-modal-buttons">
+                <button id="confirmGiveUpBtn" class="btn-confirm">Yes, Give Up</button>
+                <button id="cancelGiveUpBtn" class="btn-cancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="embedded-songs.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
