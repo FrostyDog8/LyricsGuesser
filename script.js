@@ -2246,6 +2246,7 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
             // Show year in surprise mode (hidden initially)
             songYearEl.textContent = '???';
             songYearEl.classList.add('hidden-year');
+            songYearEl.style.display = ''; // Ensure it's visible
         } else {
             // Hide year completely in artist mode and specific song mode
             songYearEl.textContent = '';

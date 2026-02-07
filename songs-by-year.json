@@ -627,6 +627,10 @@
       "artist": "Dire Straits"
     },
     {
+      "title": "Take On Me",
+      "artist": "a-ha"
+    },
+    {
       "title": "Crazy for You",
       "artist": "Madonna"
     },
@@ -1077,6 +1081,10 @@
       "artist": "Oasis"
     },
     {
+      "title": "Mr. Jones",
+      "artist": "Counting Crows"
+    },
+    {
       "title": "Don't Speak",
       "artist": "No Doubt"
     },
@@ -1199,6 +1207,10 @@
       "artist": "Christina Aguilera"
     },
     {
+      "title": "Wannabe",
+      "artist": "Spice Girls"
+    },
+    {
       "title": "Larger Than Life",
       "artist": "Backstreet Boys"
     },
@@ -1315,6 +1327,10 @@
     {
       "title": "Stan",
       "artist": "Eminem"
+    },
+    {
+      "title": "Ms. Jackson",
+      "artist": "OutKast"
     }
   ],
   "2001": [
@@ -1459,6 +1475,14 @@
     {
       "title": "Without Me",
       "artist": "Eminem"
+    },
+    {
+      "title": "Wherever You Will Go",
+      "artist": "The Calling"
+    },
+    {
+      "title": "Seven Nation Army",
+      "artist": "The White Stripes"
     }
   ],
   "2003": [
@@ -1480,7 +1504,7 @@
     },
     {
       "title": "Crazy in Love",
-      "artist": "Beyonce"
+      "artist": "Beyoncé ft. Jay-Z"
     },
     {
       "title": "When I'm Gone",
@@ -1549,6 +1573,10 @@
     {
       "title": "Clocks",
       "artist": "Coldplay"
+    },
+    {
+      "title": "Toxic",
+      "artist": "Britney Spears"
     }
   ],
   "2004": [
@@ -1558,7 +1586,7 @@
     },
     {
       "title": "Yeah!",
-      "artist": "Usher"
+      "artist": "Usher ft. Lil Jon & Ludacris"
     },
     {
       "title": "Burn",
@@ -1749,6 +1777,10 @@
       "artist": "Justin Timberlake"
     },
     {
+      "title": "Cry Me a River",
+      "artist": "Justin Timberlake"
+    },
+    {
       "title": "Unwritten",
       "artist": "Natasha Bedingfield"
     },
@@ -1795,6 +1827,10 @@
     {
       "title": "Chasing Cars",
       "artist": "Snow Patrol"
+    },
+    {
+      "title": "I Write Sins Not Tragedies",
+      "artist": "Panic! At The Disco"
     }
   ],
   "2007": [
@@ -1890,6 +1926,10 @@
     },
     {
       "title": "Apologize",
+      "artist": "Timbaland & OneRepublic"
+    },
+    {
+      "title": "Apologize",
       "artist": "OneRepublic"
     },
     {
@@ -1913,7 +1953,7 @@
       "artist": "Rihanna"
     },
     {
-      "title": "Viva la Vida",
+      "title": "Viva La Vida",
       "artist": "Coldplay"
     },
     {
@@ -1991,12 +2031,24 @@
       "artist": "Kings of Leon"
     },
     {
+      "title": "Stereo Hearts",
+      "artist": "Gym Class Heroes"
+    },
+    {
+      "title": "DJ Got Us Fallin' in Love",
+      "artist": "Usher"
+    },
+    {
       "title": "Party in the U.S.A.",
       "artist": "Miley Cyrus"
     },
     {
       "title": "Fireflies",
       "artist": "Owl City"
+    },
+    {
+      "title": "Best I Ever Had",
+      "artist": "Drake"
     },
     {
       "title": "Down",
@@ -2050,7 +2102,7 @@
     },
     {
       "title": "Love the Way You Lie",
-      "artist": "Eminem"
+      "artist": "Eminem & Rihanna"
     },
     {
       "title": "Dynamite",
@@ -2271,12 +2323,28 @@
     {
       "title": "Girl on Fire",
       "artist": "Alicia Keys"
+    },
+    {
+      "title": "Beautiful Girls",
+      "artist": "Sean Kingston"
+    },
+    {
+      "title": "Hey There Delilah",
+      "artist": "Plain White T's"
     }
   ],
   "2013": [
     {
       "title": "Pompeii",
       "artist": "Bastille"
+    },
+    {
+      "title": "Sweater Weather",
+      "artist": "The Neighbourhood"
+    },
+    {
+      "title": "Clarity",
+      "artist": "Zedd"
     },
     {
       "title": "Do I Wanna Know?",
@@ -2288,7 +2356,7 @@
     },
     {
       "title": "Blurred Lines",
-      "artist": "Robin Thicke"
+      "artist": "Robin Thicke00"
     },
     {
       "title": "Radioactive",
@@ -2435,6 +2503,10 @@
     {
       "title": "Chandelier",
       "artist": "Sia"
+    },
+    {
+      "title": "Treasure",
+      "artist": "Bruno Mars"
     }
   ],
   "2015": [
@@ -2452,7 +2524,7 @@
     },
     {
       "title": "See You Again",
-      "artist": "Wiz Khalifa"
+      "artist": "Wiz Khalifa & Charlie Puth"
     },
     {
       "title": "Trap Queen",
@@ -2529,8 +2601,20 @@
       "artist": "Drake"
     },
     {
+      "title": "Goosebumps",
+      "artist": "Travis Scott"
+    },
+    {
+      "title": "Rockabye",
+      "artist": "Clean Bandit"
+    },
+    {
+      "title": "Faded",
+      "artist": "Alan Walker"
+    },
+    {
       "title": "Work",
-      "artist": "Rihanna"
+      "artist": "Rihanna ft. Drake"
     },
     {
       "title": "Starboy",
@@ -2538,7 +2622,7 @@
     },
     {
       "title": "Closer",
-      "artist": "The Chainsmokers"
+      "artist": "The Chainsmokers & Halsey"
     },
     {
       "title": "Heathens",
@@ -2592,23 +2676,23 @@
     },
     {
       "title": "Despacito",
-      "artist": "Luis Fonsi"
+      "artist": "Luis Fonsi & Daddy Yankee"
     },
     {
       "title": "That's What I Like",
       "artist": "Bruno Mars"
     },
     {
-      "title": "Humble",
+      "title": "HUMBLE.",
+      "artist": "Kendrick Lamar"
+    },
+    {
+      "title": "HUMBLE.",
       "artist": "Kendrick Lamar"
     },
     {
       "title": "Something Just Like This",
       "artist": "The Chainsmokers"
-    },
-    {
-      "title": "Bad and Boujee",
-      "artist": "Migos"
     },
     {
       "title": "Rockstar",
@@ -2623,24 +2707,12 @@
       "artist": "Imagine Dragons"
     },
     {
-      "title": "Unforgettable",
-      "artist": "French Montana"
-    },
-    {
-      "title": "XO Tour Llif3",
-      "artist": "Lil Uzi Vert"
-    },
-    {
       "title": "Havana",
       "artist": "Camila Cabello"
     },
     {
       "title": "Perfect",
       "artist": "Ed Sheeran"
-    },
-    {
-      "title": "Bodak Yellow",
-      "artist": "Cardi B"
     },
     {
       "title": "New Rules",
@@ -2678,7 +2750,7 @@
     },
     {
       "title": "Girls Like You",
-      "artist": "Maroon 5"
+      "artist": "Maroon 5 ft. Cardi B"
     },
     {
       "title": "The Middle",
@@ -2687,6 +2759,10 @@
     {
       "title": "Better Now",
       "artist": "Post Malone"
+    },
+    {
+      "title": "Sicko Mode",
+      "artist": "Travis Scott"
     },
     {
       "title": "Psycho",
@@ -2715,6 +2791,14 @@
     {
       "title": "Love Lies",
       "artist": "Khalid"
+    },
+    {
+      "title": "Thank U, Next",
+      "artist": "Ariana Grande"
+    },
+    {
+      "title": "Shallow",
+      "artist": "Lady Gaga & Bradley Cooper"
     }
   ],
   "2019": [
@@ -2817,6 +2901,10 @@
       "artist": "Harry Styles"
     },
     {
+      "title": "WAP",
+      "artist": "Cardi B ft. Megan Thee Stallion"
+    },
+    {
       "title": "Savage",
       "artist": "Megan Thee Stallion"
     },
@@ -2827,6 +2915,14 @@
     {
       "title": "Dynamite",
       "artist": "BTS"
+    },
+    {
+      "title": "Dance Monkey",
+      "artist": "Tones and I"
+    },
+    {
+      "title": "Savage Love",
+      "artist": "Jawsh 685 & Jason Derulo"
     },
     {
       "title": "Levitating",
@@ -2921,20 +3017,12 @@
       "artist": "Justin Bieber"
     },
     {
-      "title": "Super Gremlin",
-      "artist": "Kodak Black"
-    },
-    {
-      "title": "Wait for U",
-      "artist": "Future"
-    },
-    {
       "title": "About Damn Time",
       "artist": "Lizzo"
     },
     {
-      "title": "Me Porto Bonito",
-      "artist": "Bad Bunny"
+      "title": "I'm Good (Blue)",
+      "artist": "David Guetta & Bebe Rexha"
     },
     {
       "title": "Sunroof",
@@ -2947,10 +3035,6 @@
     {
       "title": "Unholy",
       "artist": "Sam Smith"
-    },
-    {
-      "title": "Rich Flex",
-      "artist": "Drake"
     },
     {
       "title": "Calm Down",
@@ -3051,6 +3135,18 @@
     {
       "title": "Not Like Us",
       "artist": "Kendrick Lamar"
+    },
+    {
+      "title": "Die with a Smile",
+      "artist": "Lady Gaga & Bruno Mars"
+    },
+    {
+      "title": "Too Sweet",
+      "artist": "Hozier"
+    },
+    {
+      "title": "Ordinary",
+      "artist": "Alex Warren"
     }
   ],
   "2025": [
