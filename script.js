@@ -2347,13 +2347,17 @@ function tokenizeLyrics(lyrics) {
         
         const lineWords = line.trim().split(/\s+/);
         lineWords.forEach((word, wordIndex) => {
-            // Normalize word (remove punctuation, lowercase for comparison)
-            const normalized = normalizeWord(word);
-            words.push({
-                word: word,
-                normalized: normalized,
-                lineIndex: lineIndex,
-                wordIndex: wordIndex
+            // Split on hyphens so "one-two" or "well-known" become separate words (handles multiple hyphens)
+            const parts = word.split('-').filter(p => p.length > 0);
+            if (parts.length === 0) return;
+            parts.forEach((part) => {
+                const normalized = normalizeWord(part);
+                words.push({
+                    word: part,
+                    normalized: normalized,
+                    lineIndex: lineIndex,
+                    wordIndex: wordIndex
+                });
             });
         });
         
