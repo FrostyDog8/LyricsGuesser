@@ -3176,6 +3176,7 @@ function updateHintCountDisplay() {
     const n = gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0;
     if (note) {
         note.style.display = n > 0 ? 'inline' : 'none';
+        note.setAttribute('aria-hidden', n > 0 ? 'false' : 'true');
     }
     if (countEl) countEl.textContent = String(n);
 }

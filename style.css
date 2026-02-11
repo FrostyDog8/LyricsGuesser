@@ -1266,7 +1266,7 @@ header h1 {
     color: #666;
     font-weight: 600;
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    grid-template-columns: 1fr minmax(160px, 1fr) 1fr;
     align-items: center;
     gap: 10px;
 }
@@ -1286,6 +1286,7 @@ header h1 {
     font-weight: 500;
     color: #555;
     min-height: 1.2em;
+    min-width: 0;
 }
 
 .stats-center.last-revealed-hint {
