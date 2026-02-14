@@ -1,6 +1,25 @@
 // Dev mode state
 let devMode = false;
 
+// Analytics (GA4) – free, no server. Set your Measurement ID from https://analytics.google.com/
+const GA_MEASUREMENT_ID = 'G-KRL1CS0CF1'; // e.g. 'G-XXXXXXXXXX' – leave empty to disable
+function initAnalytics() {
+    if (!GA_MEASUREMENT_ID) return;
+    window.dataLayer = window.dataLayer || [];
+    function gtag() { dataLayer.push(arguments); }
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', GA_MEASUREMENT_ID);
+    const s = document.createElement('script');
+    s.async = true;
+    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + GA_MEASUREMENT_ID;
+    document.head.appendChild(s);
+}
+function trackEvent(name, params) {
+    if (!GA_MEASUREMENT_ID || typeof window.gtag !== 'function') return;
+    window.gtag('event', name, params);
+}
+
 // Game state
 let gameState = {
     lyrics: [],
@@ -49,7 +68,7 @@ function onDomReady(fn) {
 }
 
 onDomReady(() => {
-    // Attach lobby button listeners first so they always work
+    initAnalytics();
     initLobbyButtons();
 
     const wordInput = document.getElementById('wordInput');
@@ -141,6 +160,7 @@ onDomReady(() => {
     const backBtn = document.getElementById('backBtn');
     if (backBtn) {
         backBtn.addEventListener('click', () => {
+        trackEvent('back_to_lobby');
         // Reset game state
         gameState.isSurpriseSong = false;
         gameState.surpriseArtistName = '';
@@ -1194,13 +1214,14 @@ function playSongRefreshAnimation() {
 /** Load next surprise song (only in surprise game). Uses preload if ready, else fetches one. When surpriseArtistName is set, picks from that artist. */
 async function nextSurpriseSong() {
     if (!gameState.isSurpriseSong) return;
+    const byArtist = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
+    trackEvent('next_song', { mode: byArtist ? 'surprise_artist' : 'surprise' });
     const nextSongBtn = document.getElementById('nextSongBtn');
     if (!nextSongBtn) return;
     nextSongBtn.innerHTML = 'Loading... <span class="loading"></span>';
     nextSongBtn.disabled = true;
     resetVictoryUI();
 
-    const byArtist = gameState.surpriseArtistName && gameState.surpriseArtistName.trim();
     if (!byArtist) {
         const preloaded = takePreloadedSong();
         if (preloaded && preloaded.lyrics && preloaded.lyrics.trim().length >= 50) {
@@ -2453,6 +2474,10 @@ function initializeGame(lyrics, title, artist, isSurprise = false, year = null, 
         if (hebrewBanner) { hebrewBanner.style.display = 'none'; }
     }
     
+    const mode = gameState.isSurpriseSong
+        ? (gameState.surpriseArtistName && gameState.surpriseArtistName.trim() ? 'surprise_artist' : 'surprise')
+        : 'choose_song';
+    trackEvent('game_start', { mode: mode, total_words: actualWordCount, song_year: year || undefined });
     console.log(`Game initialized: ${gameState.totalWords} words to find`);
 }
 
@@ -2712,6 +2737,7 @@ function toggleSongTitle() {
         revealSongTitle();
         revealTitleBtn.textContent = 'Hide Song';
         gameState.titleRevealed = true;
+        trackEvent('reveal_title');
     }
 }
 
@@ -2837,6 +2863,8 @@ function handleGiveUp() {
     }
     const userFoundOnly = userFoundCount - (gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0);
     const percentageUser = totalWords > 0 ? Math.round((userFoundOnly / totalWords) * 100) : 0;
+    const hintsUsed = gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0;
+    trackEvent('song_give_up', { completion_pct: percentageUser, hints_used: hintsUsed });
     if (endGameTitle) endGameTitle.textContent = getEndGameMessage(percentageUser, true);
     if (endGameFound) endGameFound.textContent = userFoundOnly;
     if (endGameTotal) endGameTotal.textContent = totalWords;
@@ -3241,6 +3269,7 @@ function useHint() {
     document.getElementById('foundCount').textContent = gameState.foundCount;
     updateHintCountDisplay();
     updateLastRevealedDisplay(displayWord, indices.length, true);
+    trackEvent('hint_used', { words_revealed: indices.length });
     if (!gameState.lyricsRevealed && gameState.foundCount >= gameState.totalWords) {
         if (gameState.isSurpriseSong && !gameState.titleRevealed) {
             revealSongTitle();
@@ -3287,6 +3316,8 @@ function showVictory() {
     }
     const userFoundOnly = totalWords - (gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0);
     const completionPct = totalWords > 0 ? Math.round((userFoundOnly / totalWords) * 100) : 100;
+    const hintsUsed = gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0;
+    trackEvent('song_complete', { completion_pct: completionPct, hints_used: hintsUsed });
     if (endGameTitle) endGameTitle.textContent = getEndGameMessage(completionPct, false);
     if (endGameFound) endGameFound.textContent = userFoundOnly;
     if (endGameTotal) endGameTotal.textContent = totalWords;
