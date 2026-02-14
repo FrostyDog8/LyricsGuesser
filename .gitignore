@@ -17,3 +17,6 @@ npm-debug.log*
 # Temporary files
 *.tmp
 *.temp
+
+# Dev mode password (you create this locally; never commit)
+dev-mode-secret.js

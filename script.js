@@ -374,8 +374,28 @@ onDomReady(() => {
 });
 
 function toggleDevMode() {
-    devMode = !devMode;
-    updateDevModeUI();
+    if (devMode) {
+        devMode = false;
+        updateDevModeUI();
+        return;
+    }
+    const hash = typeof window.DEV_MODE_PASSWORD_HASH !== 'undefined' && window.DEV_MODE_PASSWORD_HASH;
+    if (!hash) {
+        return;
+    }
+    const password = prompt('Dev mode password:');
+    if (password == null) return;
+    sha256Hex(password).then(hashed => {
+        if (hashed.toLowerCase() === String(hash).toLowerCase()) {
+            devMode = true;
+            updateDevModeUI();
+        }
+    });
+}
+
+function sha256Hex(str) {
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(str))
+        .then(buf => Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join(''));
 }
 
 function updateDevModeUI() {
@@ -2481,18 +2501,31 @@ function tokenizeLyrics(lyrics) {
         }
         
         const lineWords = line.trim().split(/\s+/);
+        let pendingPrefix = '';
         lineWords.forEach((word, wordIndex) => {
             // Split on hyphens and Unicode dashes (en-dash, em-dash) so "oh-ooh" / "oh–ooh" become "oh" and "ooh"
             const parts = word.split(/\p{Pd}/u).filter(p => p.length > 0);
             if (parts.length === 0) return;
             parts.forEach((part) => {
                 const normalized = normalizeWord(part);
+                if (normalized.length === 0) {
+                    // Punctuation-only: "(" goes at start of next word, ")" at end of previous
+                    if (/^\(+$/.test(part)) {
+                        pendingPrefix += part;
+                    } else if (/^\)+$/.test(part)) {
+                        if (words.length > 0 && !words[words.length - 1].isNewline) {
+                            words[words.length - 1].word += part;
+                        }
+                    }
+                    return;
+                }
                 words.push({
-                    word: part,
+                    word: pendingPrefix + part,
                     normalized: normalized,
                     lineIndex: lineIndex,
                     wordIndex: wordIndex
                 });
+                pendingPrefix = '';
             });
         });
         
@@ -2512,10 +2545,18 @@ function normalizeWord(word) {
 
 /** Normalized "oh"-style words (oh, ooh, ah, uh, etc.): guessing any of these reveals all of them in the lyrics. */
 const OH_VARIANTS = new Set([
-    'oh', 'ooh', 'ohh', 'oooh', 'ohhh', 'oohh', 'ooooh', 'ohhhh', 'oohoh', 'ohooh',
+    'oh', 'ooh', 'ohh', 'oooh', 'ohhh', 'oohh', 'ooooh', 'ohhhh', 'oooo', 'oohoh', 'ohooh',
     'ah', 'ahh', 'aah', 'ahhh', 'aaah', 'ahhhh', 'aahh', 'ahah',
     'uh', 'uhh', 'uuh', 'uhhh', 'uuuh', 'uhhhh', 'uuhh', 'uhuh'
 ]);
+
+/** Normalize string for OH_VARIANTS matching: map fullwidth/special Latin to ASCII so "ｏｏｈ" matches "ooh". */
+function normalizeForOhMatch(s) {
+    if (!s || typeof s !== 'string') return '';
+    return s.replace(/[\uFF21-\uFF3A]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+        .replace(/[\uFF41-\uFF5A]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0))
+        .toLowerCase();
+}
 
 function createLyricsTable(words) {
     const table = document.getElementById('lyricsTable');
@@ -3073,10 +3114,13 @@ function checkWord(inputWord, shouldClearInput = false) {
     if (normalizedInput.length === 0) return false;
     
     // Special case: "oh" / "ooh" / "ah" / "uh" etc. – guessing any variant reveals all variants in the lyrics
-    if (OH_VARIANTS.has(normalizedInput)) {
+    const inputOh = normalizeForOhMatch(normalizedInput);
+    if (OH_VARIANTS.has(normalizedInput) || OH_VARIANTS.has(inputOh)) {
         const ohMatches = [];
         gameState.words.forEach((wordObj, index) => {
-            if (!wordObj.isNewline && OH_VARIANTS.has(wordObj.normalized) && !gameState.foundWords.has(wordObj.normalized)) {
+            const wordOh = normalizeForOhMatch(wordObj.normalized);
+            const isOhVariant = OH_VARIANTS.has(wordObj.normalized) || OH_VARIANTS.has(wordOh);
+            if (!wordObj.isNewline && isOhVariant && !gameState.foundWords.has(wordObj.normalized)) {
                 ohMatches.push(index);
             }
         });
@@ -3267,6 +3311,12 @@ function showVictory() {
     if (endGamePct) endGamePct.textContent = completionPct + '%';
     const victoryMessage = document.getElementById('victoryMessage');
     if (victoryMessage) victoryMessage.style.display = 'none';
+    const giveUpBtn = document.getElementById('giveUpBtn');
+    if (giveUpBtn) giveUpBtn.style.display = 'none';
+    const revealBtn = document.getElementById('revealBtn');
+    if (revealBtn) revealBtn.style.display = 'none';
+    const revealTitleBtn = document.getElementById('revealTitleBtn');
+    if (revealTitleBtn) revealTitleBtn.style.display = 'none';
     const nextSongBtn = document.getElementById('nextSongBtn');
     if (nextSongBtn && nextSongBtn.style.display !== 'none') nextSongBtn.classList.add('song-done');
     if (endGameStats) {
