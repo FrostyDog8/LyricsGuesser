@@ -16,21 +16,47 @@ body {
 .container {
     max-width: 1400px;
     margin: 0 auto;
-    background: white;
+    background-color: #f5f5f5;
+    /* music icons: headphones, mic, play, spotify curves, disc, note – light grey, no overlap */
+    background-image: url("data:image/svg+xml,%3Csvg width='160' height='160' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23d5d5d5' stroke-width='1.4' transform='translate(22,18)'%3E%3Cpath d='M0 14a8 8 0 0116 0v12a3 3 0 01-3 3H3a3 3 0 01-3-3V14z'/%3E%3Cpath d='M32 14a8 8 0 00-16 0v12a3 3 0 003 3h26a3 3 0 003-3V14z'/%3E%3Cpath d='M16 14h16a4 4 0 014 4v0a4 4 0 01-4 4H16a4 4 0 01-4-4v0a4 4 0 014-4z'/%3E%3C/g%3E%3Cg fill='%23d8d8d8' transform='translate(98,20)'%3E%3Crect width='32' height='22' rx='4' fill='%23d8d8d8'/%3E%3Cpath d='M12 6v10l10-5-10-5z' fill='%23f5f5f5'/%3E%3C/g%3E%3Cg fill='%23d5d5d5' transform='translate(18,82)'%3E%3Ccircle cx='14' cy='8' r='8'/%3E%3Crect x='11' y='16' width='6' height='18' rx='1.5'/%3E%3Cpath d='M14 36v6m0 4h0' stroke='%23d5d5d5' stroke-width='1.2' fill='none'/%3E%3C/g%3E%3Cg fill='none' stroke='%23d0d0d0' stroke-width='1.6' transform='translate(88,78)'%3E%3Cpath d='M0 8q12-3 24 0M0 16q10-2 24 0M0 24q14-2.5 24 0'/%3E%3C/g%3E%3Cg fill='none' stroke='%23d5d5d5' stroke-width='1.2' transform='translate(92,118)'%3E%3Ccircle cx='18' cy='18' r='18'/%3E%3Ccircle cx='18' cy='18' r='5'/%3E%3C/g%3E%3Cg fill='%23d0d0d0' transform='translate(22,118)'%3E%3Ccircle cx='10' cy='10' r='5'/%3E%3Cline x1='15' y1='10' x2='15' y2='28' stroke='%23d0d0d0' stroke-width='1.2'/%3E%3Cpath d='M12 28h6l-1 4h-4z' fill='%23d0d0d0'/%3E%3C/g%3E%3C/svg%3E");
+    background-size: 160px 160px;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    padding: 32px;
+    padding: 32px 32px 8px 32px;
     position: relative;
+    min-height: calc(100vh - 40px);
+}
+/* Lobby: give main content the space, no big blank below footer */
+body:not(.in-game) .container {
+    display: flex;
+    flex-direction: column;
+}
+body:not(.in-game) #gameSetup {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+body:not(.in-game) #gameSetup .game-modes {
+    flex: 1;
+    align-content: start;
 }
 /* lf:od */
 
 .dev-credit {
     text-align: center;
-    margin-top: 12px;
-    padding-top: 8px;
+    margin-top: 10px;
+    margin-bottom: 0;
+    padding-top: 6px;
+    padding-bottom: 0;
     border-top: 1px solid #eee;
     font-size: 0.7em;
-    color: #888;
+    color: #555;
+    line-height: 1.2;
+}
+body.in-game .dev-credit {
+    margin-top: 0;
+    padding-top: 4px;
 }
 .dev-credit a {
     color: #667eea;
@@ -95,7 +121,7 @@ header h1 {
 }
 
 .subtitle {
-    color: #666;
+    color: #444;
     font-size: 1.1em;
     max-width: 700px;
     margin: 0 auto;
@@ -389,35 +415,6 @@ header h1 {
 
 .game-area {
     animation: fadeIn 0.5s;
-}
-
-/* In-game: container and game area fill viewport; only lyrics box scrolls */
-body.in-game {
-    height: 100vh;
-    overflow: hidden;
-}
-body.in-game .container {
-    height: 100%;
-    max-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-body.in-game .game-area {
-    flex: 1;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-body.in-game .game-area .lyrics-table-container {
-    flex: 1;
-    min-height: 0;
-    max-height: none;
-    margin-bottom: 16px;
-}
-body.in-game .game-area > *:not(.lyrics-table-container) {
-    flex-shrink: 0;
 }
 
 @keyframes fadeIn {
