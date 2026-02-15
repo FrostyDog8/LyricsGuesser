@@ -1,3 +1,4 @@
+/* Lyrico – Fill in the Lyrics. © 2026 Omer Dabby. https://github.com/FrostyDog8/Lyrico */
 * {
     margin: 0;
     padding: 0;
@@ -18,8 +19,25 @@ body {
     background: white;
     border-radius: 20px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-    padding: 40px;
+    padding: 32px;
     position: relative;
+}
+/* lf:od */
+
+.dev-credit {
+    text-align: center;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+    font-size: 0.7em;
+    color: #888;
+}
+.dev-credit a {
+    color: #667eea;
+    text-decoration: none;
+}
+.dev-credit a:hover {
+    text-decoration: underline;
 }
 
 .dev-mode-row {
@@ -67,7 +85,7 @@ body {
 
 header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 20px;
 }
 
 header h1 {
@@ -108,10 +126,10 @@ header h1 {
 .game-modes {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 30px;
+    gap: 20px;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 20px 0;
+    padding: 8px 0;
 }
 @media (max-width: 1000px) {
     .game-modes {
@@ -127,7 +145,7 @@ header h1 {
 .game-mode-card {
     background: #f8f9fa;
     border-radius: 15px;
-    padding: 30px;
+    padding: 22px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -371,6 +389,35 @@ header h1 {
 
 .game-area {
     animation: fadeIn 0.5s;
+}
+
+/* In-game: container and game area fill viewport; only lyrics box scrolls */
+body.in-game {
+    height: 100vh;
+    overflow: hidden;
+}
+body.in-game .container {
+    height: 100%;
+    max-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+body.in-game .game-area {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+body.in-game .game-area .lyrics-table-container {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: 16px;
+}
+body.in-game .game-area > *:not(.lyrics-table-container) {
+    flex-shrink: 0;
 }
 
 @keyframes fadeIn {

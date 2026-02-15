@@ -1,14 +1,19 @@
 # Lyrico - Fill in the Lyrics Game
 
+**Author:** Omer Dabby  
+**Contact:** [lyrico.app@gmail.com](mailto:lyrico.app@gmail.com)  
+**© 2026 Omer Dabby.** All rights reserved.
+
 A fun web-based game where you guess song lyrics word by word! Type words to reveal lyrics as you play and fill in the blanks to complete the song.
 
 ## How to Play
 
 ### Game Modes
 
-1. **Manual Search**: Enter a song name and artist to play a specific song
+1. **Choose a Song**: Enter a song name to play a specific song
 2. **Surprise Me**: Get a random popular song from 1960 to present
 3. **Surprise by Artist**: Enter an artist name to get a random song by that artist
+4. **Play from Spotify**: Connect Spotify and pick a playlist or Liked Songs; play through tracks with lyrics loaded per song
 
 ### Gameplay
 
@@ -42,6 +47,7 @@ A fun web-based game where you guess song lyrics word by word! Type words to rev
 ### Surprise Modes
 - 🎲 **Surprise Me**: Random popular songs from across decades
 - 🎤 **Surprise by Artist**: Random songs by a specific artist
+- 🎧 **Play from Spotify**: Connect your account, choose a playlist or Liked Songs, and play through with lyrics fetched for each track
 - ⚡ **Preloading**: Background preloading of upcoming songs for instant "Next Song" experience
   - Preloads 3 songs ahead for global surprise mode
   - Preloads 3 songs ahead for artist-specific mode
@@ -71,7 +77,7 @@ Simply open `index.html` in a web browser. No installation or build process requ
 
 1. **Create a GitHub repository:**
    - Go to [GitHub](https://github.com) and create a new repository
-   - Name it `lyrics-figure` (or any name you prefer)
+   - Name it `Lyrico` (or any name you prefer)
    - Don't initialize with README (we already have one)
 
 2. **Push your code:**
@@ -79,7 +85,7 @@ Simply open `index.html` in a web browser. No installation or build process requ
    git add .
    git commit -m "Initial commit"
    git branch -M main
-   git remote add origin https://github.com/YOUR_USERNAME/lyrics-figure.git
+   git remote add origin https://github.com/YOUR_USERNAME/Lyrico.git
    git push -u origin main
    ```
 
@@ -89,7 +95,7 @@ Simply open `index.html` in a web browser. No installation or build process requ
    - Under "Source", select "Deploy from a branch"
    - Choose "main" branch and "/ (root)" folder
    - Click "Save"
-   - Your site will be live at: `https://YOUR_USERNAME.github.io/lyrics-figure/`
+   - Your site will be live at: `https://YOUR_USERNAME.github.io/Lyrico/`
 
 ### Updating the Live Version
 
@@ -167,6 +173,7 @@ Works best in modern browsers (Chrome, Firefox, Safari, Edge) that support:
 
 ## Version History
 
+- **v1.6**: Developer attribution footer and contact email (lyrico.app@gmail.com); in-game layout so only the lyrics box scrolls (no page scroll); main screen tightened so it fits without scrolling; year and hidden attribution updates
 - **v1.5**: Hint button (reveal random word, orange styling); end-game messages by completion % (Perfection! to encouraging); last-revealed word in center (guess=purple, hint=orange); Next Song pulse animation; songs list updated
 - **v1.4**: Artist mode preload priority; surprise preload continues when artist queue is full and when returning to lobby; songs data refreshed
 - **v1.3**: End-of-game stats replace guess area on victory/give up; year only in Surprise Me; lobby button fixes
@@ -174,6 +181,8 @@ Works best in modern browsers (Chrome, Firefox, Safari, Edge) that support:
 - **v1.1**: Optimized song selection with year-based fetching, dev mode improvements (year/rank/source display)
 - **v1.0**: Initial release with core gameplay features
 
-## License
+## License & Copyright
 
-This project is open source and available for personal use.
+© 2026 Omer Dabby. All rights reserved.  
+This project is open source and available for personal use.  
+If you use or adapt this code, please attribute the original author (Omer Dabby) and link to the repository: https://github.com/FrostyDog8/Lyrico

@@ -1,8 +1,13 @@
+/**
+ * Lyrico – Fill in the Lyrics
+ * © 2026 Omer Dabby. All rights reserved.
+ * https://github.com/FrostyDog8/Lyrico
+ */
 // Dev mode state
 let devMode = false;
 
-// Analytics (GA4) – free, no server. Set your Measurement ID from https://analytics.google.com/
-const GA_MEASUREMENT_ID = 'G-KRL1CS0CF1'; // e.g. 'G-XXXXXXXXXX' – leave empty to disable
+// Analytics (GA4) – Lyrico property. Set your Measurement ID from https://analytics.google.com/
+const GA_MEASUREMENT_ID = 'G-KRL1CS0CF1'; // leave empty to disable
 const GA_CLIENT_ID_KEY = 'lf_ga_cid';
 function getGaClientIdFromCookie() {
     try {
@@ -61,9 +66,11 @@ const SPOTIFY_SCOPES = 'playlist-read-private playlist-read-collaborative user-l
 const SPOTIFY_STORAGE_KEY = 'lf_spotify_token';
 const SPOTIFY_VERIFIER_KEY = 'lf_spotify_code_verifier';
 const SPOTIFY_STATE_KEY = 'lf_spotify_state';
+const _lf = 'od-lyrico'; // internal build id
 
 function getSpotifyRedirectUri() {
     if (typeof window === 'undefined' || !window.location) return 'http://127.0.0.1:8080';
+    // lf:od
     const o = window.location;
     const path = o.pathname.replace(/\/?$/, '') || '/';
     return o.origin + path + (path === '/' ? '' : '/');
@@ -473,6 +480,7 @@ onDomReady(() => {
         // Hide game area and show setup
         document.getElementById('gameArea').style.display = 'none';
         document.getElementById('gameSetup').style.display = 'block';
+        document.body.classList.remove('in-game');
         document.getElementById('songInput').value = '';
         document.getElementById('songInput').focus();
         
@@ -1477,6 +1485,7 @@ function applyPreloadedSong(song) {
     if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
     document.getElementById('gameSetup').style.display = 'none';
     document.getElementById('gameArea').style.display = 'block';
+    document.body.classList.add('in-game');
     updateFailedSongsDisplay(globalFailedSongs);
     startBtn.innerHTML = 'Start Game';
     startBtn.disabled = false;
@@ -1707,6 +1716,7 @@ function openSpotifyPlaylistPicker() {
     if (!overlay || !listEl) return;
     listEl.innerHTML = '<div class="song-list-loading">Loading playlists…</div>';
     overlay.style.display = 'flex';
+    const SHOW_PLAYLIST_SONG_COUNT = false; // set true to show song count per playlist (currently unreliable)
     Promise.all([
         spotifyFetchPlaylists(),
         spotifyGetLikedTracksTotal().catch(() => 0)
@@ -1714,7 +1724,7 @@ function openSpotifyPlaylistPicker() {
         listEl.innerHTML = '';
         const likedItem = document.createElement('div');
         likedItem.className = 'song-item';
-        const likedCountText = likedTotal > 0 ? (likedTotal + ' song' + (likedTotal !== 1 ? 's' : '')) : 'Your saved tracks';
+        const likedCountText = SHOW_PLAYLIST_SONG_COUNT && likedTotal > 0 ? (likedTotal + ' song' + (likedTotal !== 1 ? 's' : '')) : 'Your saved tracks';
         likedItem.innerHTML = '<div class="song-item-info"><strong>❤️ Liked Songs</strong><span class="song-artist">' + likedCountText + '</span></div>';
         likedItem.addEventListener('click', () => {
             overlay.style.display = 'none';
@@ -1731,7 +1741,7 @@ function openSpotifyPlaylistPicker() {
             strong.textContent = p.name;
             const span = document.createElement('span');
             span.className = 'song-artist';
-            span.textContent = count + ' song' + (count !== 1 ? 's' : '');
+            span.textContent = SHOW_PLAYLIST_SONG_COUNT ? (count + ' song' + (count !== 1 ? 's' : '')) : '';
             info.appendChild(strong);
             info.appendChild(span);
             item.appendChild(info);
@@ -1817,6 +1827,7 @@ async function pickAndLoadFirstSpotifySong() {
         initializeGame(lyrics, track.title, track.artist, true, null, null, null, isHebrew(lyrics));
         document.getElementById('gameSetup').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
+        document.body.classList.add('in-game');
         const songSelectionOverlay = document.getElementById('songSelectionOverlay');
         if (songSelectionOverlay) songSelectionOverlay.style.display = 'none';
         updateFailedSongsDisplay(globalFailedSongs);
@@ -2260,6 +2271,7 @@ async function loadSong(title, artist, isSurprise = false, year = null, rank = n
         // Show game area
         document.getElementById('gameSetup').style.display = 'none';
         document.getElementById('gameArea').style.display = 'block';
+        document.body.classList.add('in-game');
 
         // Update failed songs display to show in game screen
         updateFailedSongsDisplay(globalFailedSongs);
@@ -3199,7 +3211,7 @@ function revealAllLyrics() {
 
 function hideLyrics() {
     // Hide words that weren't guessed by the user
-    gameState.words.forEach((wordObj, index) => {
+    gameState.words.forEach((wordObj, index) => { // od
         if (!wordObj.isNewline) {
             const slot = document.querySelector(`.word-slot[data-index="${index}"]`);
             if (slot) {
