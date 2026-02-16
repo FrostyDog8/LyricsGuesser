@@ -391,7 +391,7 @@ body.spotify-unlocked .game-modes {
 
 .error-message {
     color: #e74c3c;
-    margin-top: 0;
+    margin-top: 8px;
     margin-bottom: 0;
     font-weight: 500;
     display: none;
@@ -1657,6 +1657,87 @@ body.spotify-unlocked .game-modes {
     }
     .container {
         padding: 16px 16px 8px 16px;
+    }
+    /* Lobby: smaller, more compact for phones */
+    header {
+        margin-bottom: 12px;
+    }
+    header h1 {
+        font-size: 2em;
+        margin-bottom: 6px;
+    }
+    .subtitle {
+        font-size: 0.9em;
+        line-height: 1.4;
+        margin-bottom: 0;
+    }
+    .game-modes {
+        gap: 16px;
+        padding: 4px 0 0 0;
+    }
+    .game-mode-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    .mode-icon {
+        font-size: 2em;
+        margin-bottom: 10px;
+    }
+    .game-mode-card h3 {
+        font-size: 1.2em;
+        margin-bottom: 8px;
+    }
+    .mode-description {
+        font-size: 0.85em;
+        line-height: 1.4;
+        margin-bottom: 12px;
+    }
+    .game-mode-card-actions {
+        min-height: 80px;
+        gap: 10px;
+    }
+    .game-mode-card-actions:not(:has(.mode-input-group)) {
+        padding-top: 40px;
+    }
+    .game-mode-card-actions .btn-primary,
+    .game-mode-card-actions .btn-secondary,
+    .game-mode-card-actions .btn-spotify,
+    .game-mode-card-actions #surpriseBtn,
+    .game-mode-card-actions #surpriseByArtistBtn {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        height: 44px;
+        min-height: 44px;
+        font-size: 0.9em;
+        padding: 0 12px;
+    }
+    .game-mode-card-actions .mode-input-group {
+        width: 100%;
+    }
+    .game-mode-card-actions .mode-input-group .btn {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        height: 44px;
+        min-height: 44px;
+        font-size: 0.9em;
+        padding: 0 12px;
+    }
+    .mode-input-group {
+        gap: 10px;
+    }
+    .mode-input-group input {
+        padding: 10px 12px;
+        font-size: 0.9em;
+        border-radius: 8px;
+    }
+    .btn-help {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9em;
+        min-width: 32px;
+        min-height: 32px;
     }
     .game-area .game-area-top-bar {
         flex-direction: column;

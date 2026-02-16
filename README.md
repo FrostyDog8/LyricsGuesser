@@ -13,7 +13,6 @@ A fun web-based game where you guess song lyrics word by word! Type words to rev
 1. **Choose a Song**: Enter a song name to play a specific song
 2. **Surprise Me**: Get a random popular song from 1960 to present
 3. **Surprise by Artist**: Enter an artist name to get a random song by that artist
-4. **Play from Spotify**: Connect Spotify and pick a playlist or Liked Songs; play through tracks with lyrics loaded per song
 
 ### Gameplay
 
@@ -47,7 +46,6 @@ A fun web-based game where you guess song lyrics word by word! Type words to rev
 ### Surprise Modes
 - 🎲 **Surprise Me**: Random popular songs from across decades
 - 🎤 **Surprise by Artist**: Random songs by a specific artist
-- 🎧 **Play from Spotify**: Connect your account, choose a playlist or Liked Songs, and play through with lyrics fetched for each track
 - ⚡ **Preloading**: Background preloading of upcoming songs for instant "Next Song" experience
   - Preloads 3 songs ahead for global surprise mode
   - Preloads 3 songs ahead for artist-specific mode

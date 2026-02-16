@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Runtime Comparison Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        #results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .test-running {
+            color: #2196F3;
+        }
+        .test-success {
+            color: #4CAF50;
+        }
+        .test-error {
+            color: #f44336;
+        }
+        .summary {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Runtime Comparison Test</h1>
+        <p>This test compares the old method (fetches all songs) vs the optimized method (fetches only selected year).</p>
+        <button id="runTest">Run Comparison Test</button>
+        <button id="runMultiple">Run Multiple Tests (5 runs)</button>
+
+        <h2 style="margin-top: 30px;">Last.fm chart.getTopTracks – Top 100 Overall</h2>
+        <p>Uses Last.fm <code>chart.getTopTracks</code> (global top tracks, not by year).</p>
+        <button id="loadTop100">Load Top 100 Songs</button>
+        <div id="top100Results" style="margin-top: 15px; padding: 15px; background: #f9f9f9; border-radius: 5px; max-height: 400px; overflow-y: auto;"></div>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const resultsEl = document.getElementById('results');
+        const LASTFM_API_KEY = '072e57491a78cfaf62abffd5bf5429a4';
+
+        // Last.fm chart.getTopTracks – one page (global top tracks)
+        async function fetchLastFmChartPage(page, limit) {
+            const params = new URLSearchParams({
+                method: 'chart.gettoptracks',
+                api_key: LASTFM_API_KEY,
+                format: 'json',
+                limit: String(limit || 50),
+                page: String(page || 1)
+            });
+            const url = `https://ws.audioscrobbler.com/2.0/?${params}`;
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const res = await fetch(proxyUrl);
+            if (!res.ok) throw new Error(`Last.fm HTTP ${res.status}`);
+            const proxy = await res.json();
+            const raw = proxy.contents;
+            const data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (data.error) throw new Error(data.message || 'Last.fm API error');
+            const tracks = data?.tracks?.track ?? [];
+            return Array.isArray(tracks) ? tracks : [];
+        }
+
+        // Fetch top 100 overall (2 pages of 50)
+        async function fetchLastFmTop100Chart() {
+            const all = [];
+            for (let page = 1; page <= 2; page++) {
+                const tracks = await fetchLastFmChartPage(page, 50);
+                if (!tracks.length) break;
+                for (const t of tracks) {
+                    const title = (t.name || '').trim();
+                    const artist = (t.artist?.name ?? t.artist ?? '').trim() || 'Unknown';
+                    const playcount = parseInt(t.playcount, 10) || 0;
+                    all.push({ title, artist, playcount });
+                }
+                if (all.length >= 100) break;
+            }
+            return all.slice(0, 100).map((s, i) => ({ ...s, rank: i + 1 }));
+        }
+
+        // Helper function to check if string is likely English
+        function isLikelyEnglish(text) {
+            if (!text) return false;
+            const nonLatin = /[^\x00-\x7F\u0080-\u00FF\u0100-\u017F]/;
+            if (nonLatin.test(text)) return false;
+            
+            const spanishWords = ['el', 'la', 'de', 'que', 'y', 'en', 'un', 'es', 'se', 'no', 'te', 'lo', 'le', 'da', 'su', 'por', 'son', 'con', 'las', 'del', 'los', 'una', 'esta', 'este', 'está', 'están', 'estas', 'estos'];
+            const words = text.toLowerCase().split(/\s+/);
+            let spanishCount = 0;
+            for (const word of words) {
+                if (spanishWords.includes(word.replace(/[^\w]/g, ''))) spanishCount++;
+            }
+            return spanishCount < 5;
+        }
+        
+        // Helper function to check if song is original version
+        function isOriginalVersion(title) {
+            if (!title) return false;
+            const lower = title.toLowerCase();
+            const exclude = ['live', 'acoustic', 'remix', 'remastered', 'demo', 'cover', 'version', 'feat.', 'featuring'];
+            return !exclude.some(word => lower.includes(word));
+        }
+        
+        // Old method: Fetch all songs first
+        async function getRandomPopularSongOld() {
+            const currentYear = new Date().getFullYear();
+            const seen = new Set();
+            const out = [];
+            
+            // Fetch all songs year by year
+            for (let year = 1960; year <= currentYear; year++) {
+                let songsPerYear;
+                if (year >= 1960 && year < 1980) {
+                    songsPerYear = 4;
+                } else if (year >= 1980 && year < 2000) {
+                    songsPerYear = 10;
+                } else {
+                    songsPerYear = 15;
+                }
+                
+                try {
+                    const url = `https://itunes.apple.com/search?term=${encodeURIComponent(year)}%20hit&media=music&entity=song&limit=${songsPerYear * 2}`;
+                    const res = await fetch(url);
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    if (!data.results || !data.results.length) continue;
+                    
+                    const topResults = data.results.slice(0, songsPerYear);
+                    for (const r of topResults) {
+                        if (!isOriginalVersion(r.trackName)) continue;
+                        const title = (r.trackName || '').trim();
+                        const artist = (r.artistName || '').trim() || 'Unknown';
+                        if (!title || !isLikelyEnglish(title) || !isLikelyEnglish(artist)) continue;
+                        const key = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        const releaseYear = r.releaseDate ? new Date(r.releaseDate).getFullYear() : year;
+                        out.push({ title, artist, year: releaseYear });
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            
+            if (!out.length) throw new Error('No songs available');
+            const chosen = out[Math.floor(Math.random() * out.length)];
+            return { title: chosen.title, artist: chosen.artist, year: chosen.year || null };
+        }
+        
+        // Optimized method: Select random year first, then fetch only that year
+        async function getRandomPopularSongOptimized() {
+            const currentYear = new Date().getFullYear();
+            
+            // Calculate total weight
+            let totalWeight = 0;
+            const yearWeights = [];
+            for (let year = 1960; year <= currentYear; year++) {
+                let songsPerYear;
+                if (year >= 1960 && year < 1980) {
+                    songsPerYear = 4;
+                } else if (year >= 1980 && year < 2000) {
+                    songsPerYear = 10;
+                } else {
+                    songsPerYear = 15;
+                }
+                totalWeight += songsPerYear;
+                yearWeights.push({ year, weight: songsPerYear, cumulative: totalWeight });
+            }
+            
+            // Select random year based on weights
+            const random = Math.random() * totalWeight;
+            let selectedYear = 1960;
+            for (const yw of yearWeights) {
+                if (random < yw.cumulative) {
+                    selectedYear = yw.year;
+                    break;
+                }
+            }
+            
+            // Determine songs per year for selected year
+            let songsPerYear;
+            if (selectedYear >= 1960 && selectedYear < 1980) {
+                songsPerYear = 4;
+            } else if (selectedYear >= 1980 && selectedYear < 2000) {
+                songsPerYear = 10;
+            } else {
+                songsPerYear = 15;
+            }
+            
+            // Fetch only songs from that year
+            const seen = new Set();
+            const songs = [];
+            try {
+                const url = `https://itunes.apple.com/search?term=${encodeURIComponent(selectedYear)}%20hit&media=music&entity=song&limit=${songsPerYear * 2}`;
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`iTunes search failed: ${res.status}`);
+                const data = await res.json();
+                if (data.results && data.results.length) {
+                    const topResults = data.results.slice(0, songsPerYear);
+                    for (const r of topResults) {
+                        if (!isOriginalVersion(r.trackName)) continue;
+                        const title = (r.trackName || '').trim();
+                        const artist = (r.artistName || '').trim() || 'Unknown';
+                        if (!title || !isLikelyEnglish(title) || !isLikelyEnglish(artist)) continue;
+                        const key = `${title.toLowerCase()}|${artist.toLowerCase()}`;
+                        if (seen.has(key)) continue;
+                        seen.add(key);
+                        const releaseYear = r.releaseDate ? new Date(r.releaseDate).getFullYear() : selectedYear;
+                        songs.push({ title, artist, year: releaseYear });
+                    }
+                }
+            } catch (e) {
+                throw new Error(`Failed to fetch songs for year ${selectedYear}: ${e.message}`);
+            }
+            
+            if (!songs.length) throw new Error(`No songs found for year ${selectedYear}`);
+            
+            const chosen = songs[Math.floor(Math.random() * songs.length)];
+            return { title: chosen.title, artist: chosen.artist, year: chosen.year || null };
+        }
+        
+        // Comparison function
+        async function runComparison() {
+            resultsEl.innerHTML = '<div class="test-running">🔄 Running comparison test...\n</div>';
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            
+            let oldTime = 0;
+            let optTime = 0;
+            let oldSong = null;
+            let optSong = null;
+            
+            // Test old method
+            resultsEl.innerHTML += '<div class="test-running">\n📊 Testing OLD method (fetching all songs first)...\n</div>';
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            const oldStart = performance.now();
+            try {
+                oldSong = await getRandomPopularSongOld();
+                const oldEnd = performance.now();
+                oldTime = oldEnd - oldStart;
+                resultsEl.innerHTML += `<div class="test-success">✅ Old method: ${oldTime.toFixed(2)}ms\n   Got: "${oldSong.title}" by ${oldSong.artist}${oldSong.year ? ` (${oldSong.year})` : ''}\n</div>`;
+            } catch (e) {
+                oldTime = Infinity;
+                resultsEl.innerHTML += `<div class="test-error">❌ Old method failed: ${e.message}\n</div>`;
+            }
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            
+            // Small delay between tests
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Test optimized method
+            resultsEl.innerHTML += '<div class="test-running">\n📊 Testing OPTIMIZED method (fetching only selected year)...\n</div>';
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            const optStart = performance.now();
+            try {
+                optSong = await getRandomPopularSongOptimized();
+                const optEnd = performance.now();
+                optTime = optEnd - optStart;
+                resultsEl.innerHTML += `<div class="test-success">✅ Optimized method: ${optTime.toFixed(2)}ms\n   Got: "${optSong.title}" by ${optSong.artist}${optSong.year ? ` (${optSong.year})` : ''}\n</div>`;
+            } catch (e) {
+                optTime = Infinity;
+                resultsEl.innerHTML += `<div class="test-error">❌ Optimized method failed: ${e.message}\n</div>`;
+            }
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            
+            // Show summary
+            resultsEl.innerHTML += '\n<div class="summary">';
+            resultsEl.innerHTML += '<strong>📈 RESULTS SUMMARY:</strong>\n';
+            if (oldTime !== Infinity && optTime !== Infinity) {
+                const improvement = ((oldTime - optTime) / oldTime * 100);
+                const speedup = (oldTime / optTime).toFixed(2);
+                resultsEl.innerHTML += `\nOld method:     ${oldTime.toFixed(2)}ms\n`;
+                resultsEl.innerHTML += `Optimized:     ${optTime.toFixed(2)}ms\n`;
+                if (improvement > 0) {
+                    resultsEl.innerHTML += `\n✅ <strong style="color: #4CAF50;">Optimized is ${improvement.toFixed(1)}% faster (${speedup}x speedup)</strong>\n`;
+                } else {
+                    resultsEl.innerHTML += `\n⚠️ <strong style="color: #ff9800;">Optimized is ${Math.abs(improvement).toFixed(1)}% slower</strong>\n`;
+                }
+            } else {
+                resultsEl.innerHTML += '\n⚠️ Could not complete comparison due to errors.\n';
+            }
+            resultsEl.innerHTML += '</div>';
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            
+            return { oldTime, optTime, oldSong, optSong };
+        }
+        
+        // Run multiple tests
+        async function runMultipleTests(count = 5) {
+            resultsEl.innerHTML = `<div class="test-running">🔄 Running ${count} comparison tests...\n</div>`;
+            resultsEl.scrollTop = resultsEl.scrollHeight;
+            
+            const results = [];
+            for (let i = 1; i <= count; i++) {
+                resultsEl.innerHTML += `\n<div class="test-running">\n--- Test ${i}/${count} ---\n</div>`;
+                resultsEl.scrollTop = resultsEl.scrollHeight;
+                
+                const result = await runComparison();
+                results.push(result);
+                
+                if (i < count) {
+                    resultsEl.innerHTML += '\n<div class="test-running">Waiting 2 seconds before next test...\n</div>';
+                    resultsEl.scrollTop = resultsEl.scrollHeight;
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+            }
+            
+            // Calculate averages
+            const validResults = results.filter(r => r.oldTime !== Infinity && r.optTime !== Infinity);
+            if (validResults.length > 0) {
+                const avgOld = validResults.reduce((sum, r) => sum + r.oldTime, 0) / validResults.length;
+                const avgOpt = validResults.reduce((sum, r) => sum + r.optTime, 0) / validResults.length;
+                const avgImprovement = ((avgOld - avgOpt) / avgOld * 100);
+                const avgSpeedup = (avgOld / avgOpt).toFixed(2);
+                
+                resultsEl.innerHTML += '\n<div class="summary">';
+                resultsEl.innerHTML += '<strong>📊 AVERAGE RESULTS (across ' + validResults.length + ' tests):</strong>\n';
+                resultsEl.innerHTML += `\nAverage Old method:     ${avgOld.toFixed(2)}ms\n`;
+                resultsEl.innerHTML += `Average Optimized:     ${avgOpt.toFixed(2)}ms\n`;
+                if (avgImprovement > 0) {
+                    resultsEl.innerHTML += `\n✅ <strong style="color: #4CAF50;">Optimized is ${avgImprovement.toFixed(1)}% faster on average (${avgSpeedup}x speedup)</strong>\n`;
+                } else {
+                    resultsEl.innerHTML += `\n⚠️ <strong style="color: #ff9800;">Optimized is ${Math.abs(avgImprovement).toFixed(1)}% slower on average</strong>\n`;
+                }
+                resultsEl.innerHTML += '</div>';
+                resultsEl.scrollTop = resultsEl.scrollHeight;
+            }
+        }
+        
+        // Load Top 100 overall (Last.fm chart.getTopTracks)
+        document.getElementById('loadTop100').addEventListener('click', async () => {
+            const outEl = document.getElementById('top100Results');
+            const btn = document.getElementById('loadTop100');
+            btn.disabled = true;
+            outEl.innerHTML = '<div class="test-running">Loading top 100 songs overall...</div>';
+            try {
+                const songs = await fetchLastFmTop100Chart();
+                if (!songs.length) {
+                    outEl.innerHTML = '<span class="test-error">No tracks returned.</span>';
+                    return;
+                }
+                outEl.innerHTML = '<strong>Top ' + songs.length + ' tracks (overall)</strong><ol style="margin: 10px 0 0 20px;">' +
+                    songs.map(s => '<li><strong>' + escapeHtml(s.title) + '</strong> – ' + escapeHtml(s.artist) + (s.playcount ? ' <small>(' + (s.playcount / 1000000).toFixed(1) + 'M plays)</small>' : '') + '</li>').join('') +
+                    '</ol>';
+            } catch (e) {
+                outEl.innerHTML = '<span class="test-error">Error: ' + escapeHtml(e.message) + '</span>';
+            } finally {
+                btn.disabled = false;
+            }
+        });
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        document.getElementById('runTest').addEventListener('click', async () => {
+            document.getElementById('runTest').disabled = true;
+            document.getElementById('runMultiple').disabled = true;
+            try {
+                await runComparison();
+            } finally {
+                document.getElementById('runTest').disabled = false;
+                document.getElementById('runMultiple').disabled = false;
+            }
+        });
+        
+        document.getElementById('runMultiple').addEventListener('click', async () => {
+            document.getElementById('runTest').disabled = true;
+            document.getElementById('runMultiple').disabled = true;
+            try {
+                await runMultipleTests(5);
+            } finally {
+                document.getElementById('runTest').disabled = false;
+                document.getElementById('runMultiple').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

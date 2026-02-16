@@ -1,0 +1,1 @@
+Analytics: add hint_used, next_song, reveal_title, back_to_lobby; add hints_used to complete/give_up; song_year on game_start

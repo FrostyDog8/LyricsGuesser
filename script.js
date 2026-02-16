@@ -2394,11 +2394,54 @@ function isHebrew(text) {
 /** True if text uses only the English (Latin) alphabet. Accented letters (é, ñ, ü) are allowed because they normalize to a-z (e.g. Spanish "niño" → "nino"). Rejects scripts like Cyrillic, CJK, Arabic, Hebrew. */
 function usesOnlyEnglishAlphabet(text) {
     if (!text || typeof text !== 'string') return true;
-    const normalized = text.normalize('NFD').replace(/\p{M}/gu, '');
-    for (const char of normalized) {
-        if (/\p{L}/u.test(char) && !/[a-zA-Z]/.test(char)) return false;
+    try {
+        // Normalize to NFD (decomposed form) and remove combining marks (accents)
+        // This converts é → e, ñ → n, etc.
+        const normalized = text.normalize('NFD').replace(/\p{M}/gu, '');
+        
+        for (const char of normalized) {
+            // Only check Unicode letters (Category L) - ignore punctuation, digits, whitespace
+            if (/\p{L}/u.test(char)) {
+                const code = char.charCodeAt(0);
+                // Always allow basic Latin (a-z, A-Z)
+                if (/[a-zA-Z]/.test(char)) {
+                    continue;
+                }
+                // Allow Latin Extended ranges (should normalize but be permissive)
+                // Latin Extended-A: U+0100-U+017F, Latin Extended-B: U+0180-U+024F
+                // Latin Extended Additional: U+1E00-U+1EFF, Latin Extended-C: U+2C60-U+2C7F
+                // Latin Extended-D: U+A720-U+A7FF, Latin Extended-E: U+AB30-U+AB6F
+                if ((code >= 0x0100 && code <= 0x024F) ||
+                    (code >= 0x1E00 && code <= 0x1EFF) ||
+                    (code >= 0x2C60 && code <= 0x2C7F) ||
+                    (code >= 0xA720 && code <= 0xA7FF) ||
+                    (code >= 0xAB30 && code <= 0xAB6F)) {
+                    continue; // Allow Latin Extended characters
+                }
+                // Reject known non-Latin scripts (Cyrillic, Greek, CJK, Arabic, Hebrew, etc.)
+                // Check for common non-Latin script ranges
+                if ((code >= 0x0370 && code <= 0x03FF) ||   // Greek
+                    (code >= 0x0400 && code <= 0x04FF) ||   // Cyrillic
+                    (code >= 0x0530 && code <= 0x058F) ||   // Armenian
+                    (code >= 0x0590 && code <= 0x05FF) ||   // Hebrew
+                    (code >= 0x0600 && code <= 0x06FF) ||   // Arabic
+                    (code >= 0x0900 && code <= 0x097F) ||   // Devanagari
+                    (code >= 0x3040 && code <= 0x309F) ||   // Hiragana
+                    (code >= 0x30A0 && code <= 0x30FF) ||   // Katakana
+                    (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK Unified Ideographs
+                    (code >= 0xAC00 && code <= 0xD7AF)) {   // Hangul
+                    return false;
+                }
+                // For any other Unicode letter not in the above ranges, be permissive
+                // (might be a rare Latin variant or a character that should have normalized)
+            }
+        }
+        return true;
+    } catch (e) {
+        // If normalization fails (shouldn't happen in modern browsers), be permissive
+        // Fall back to checking if text contains only ASCII printable + common Unicode punctuation
+        return /^[\x20-\x7E\u00A0-\u00FF\u2013-\u201E\u2026]*$/.test(text);
     }
-    return true;
 }
 
 /** True if text looks like English. Rejects non-Latin scripts; rejects Spanish only if enough Spanish words. Used for Surprise Me preload filtering only. */
