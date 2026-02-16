@@ -283,8 +283,8 @@ function initLobbyButtons() {
     const artistInput = document.getElementById('artistInput');
     if (startBtn) startBtn.addEventListener('click', startGame);
     if (songInput) songInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') startGame(); });
-    if (surpriseBtn) surpriseBtn.addEventListener('click', surpriseMe);
-    if (surpriseByArtistBtn) surpriseByArtistBtn.addEventListener('click', surpriseByArtist);
+    if (surpriseBtn) surpriseBtn.addEventListener('click', () => { trackEvent('surprise_me_clicked'); surpriseMe(); });
+    if (surpriseByArtistBtn) surpriseByArtistBtn.addEventListener('click', () => { trackEvent('surprise_by_artist_clicked', { artist: (document.getElementById('artistInput') || {}).value?.trim() || '' }); surpriseByArtist(); });
     if (artistInput) artistInput.addEventListener('keypress', function(e) { if (e.key === 'Enter') surpriseByArtist(); });
 }
 
@@ -330,6 +330,9 @@ onDomReady(() => {
     if (spotifyConnectBtn) {
         updateSpotifyButtonText();
         spotifyConnectBtn.addEventListener('click', () => {
+            trackEvent('spotify_mode_clicked', { 
+                is_logged_in: !!spotifyGetStoredToken() 
+            });
             if (spotifyGetStoredToken()) openSpotifyPlaylistPicker();
             else spotifyLogin();
         });
@@ -702,6 +705,7 @@ onDomReady(() => {
 
     if (playAgainBtn) {
         playAgainBtn.addEventListener('click', () => {
+            trackEvent('play_again_clicked');
             location.reload();
         });
     }
@@ -2194,6 +2198,7 @@ async function startGame() {
         document.body.classList.add('spotify-unlocked');
         const spotifyModeCard = document.getElementById('spotifyModeCard');
         if (spotifyModeCard) spotifyModeCard.style.display = 'block';
+        trackEvent('spotify_mode_unlocked', { method: 'secret_code' });
         songInput.value = '';
         errorMessage.classList.remove('show');
         return;
@@ -2212,6 +2217,8 @@ async function startGame() {
     if (surpriseByArtistBtn) surpriseByArtistBtn.disabled = true;
     errorMessage.classList.remove('show');
     document.getElementById('songSelection').style.display = 'none';
+
+    trackEvent('song_search', { query: songName.trim() });
 
     try {
         // Search for songs by title only
@@ -2597,6 +2604,7 @@ function showSongSelection(songs, query) {
         `;
         songItem.addEventListener('click', async () => {
             songSelectionOverlay.style.display = 'none';
+            trackEvent('song_selected', { title: song.title, artist: song.artist, from_search: true });
             try {
                 await loadSong(song.title, song.artist, false, null, null, null, false);
             } catch (err) {
@@ -3254,11 +3262,13 @@ function toggleRevealLyrics() {
         hideLyrics();
         revealBtn.textContent = 'Reveal Lyrics';
         gameState.lyricsRevealed = false;
+        trackEvent('reveal_lyrics', { action: 'hide' });
     } else {
         // Reveal all lyrics
         revealAllLyrics();
         revealBtn.textContent = 'Hide Lyrics';
         gameState.lyricsRevealed = true;
+        trackEvent('reveal_lyrics', { action: 'show' });
     }
 }
 
@@ -3377,6 +3387,7 @@ function toggleYear() {
             songYearEl.classList.remove('hidden-year');
             revealYearBtn.textContent = 'Hide Year';
             gameState.yearRevealed = true;
+            trackEvent('reveal_year', { year: gameState.songYear });
         } else {
             console.log('No year available to reveal');
         }
@@ -3472,7 +3483,7 @@ function handleGiveUp() {
     const userFoundOnly = userFoundCount - (gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0);
     const percentageUser = totalWords > 0 ? Math.round((userFoundOnly / totalWords) * 100) : 0;
     const hintsUsed = gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0;
-    trackEvent('song_give_up', { completion_pct: percentageUser, hints_used: hintsUsed });
+    trackEvent('song_give_up', { completion_pct: percentageUser, hints_used: hintsUsed, total_words: totalWords });
     if (endGameTitle) endGameTitle.textContent = getEndGameMessage(percentageUser, true);
     if (endGameFound) endGameFound.textContent = userFoundOnly;
     if (endGameTotal) endGameTotal.textContent = totalWords;
@@ -3493,6 +3504,7 @@ function handleGiveUp() {
 }
 
 function showHelp(title, content) {
+    trackEvent('help_opened', { help_topic: title });
     const helpModal = document.getElementById('helpModal');
     const helpModalTitle = document.getElementById('helpModalTitle');
     const helpModalContent = document.getElementById('helpModalContent');
@@ -3925,7 +3937,7 @@ function showVictory() {
     const userFoundOnly = totalWords - (gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0);
     const completionPct = totalWords > 0 ? Math.round((userFoundOnly / totalWords) * 100) : 100;
     const hintsUsed = gameState.hintRevealedIndices ? gameState.hintRevealedIndices.size : 0;
-    trackEvent('song_complete', { completion_pct: completionPct, hints_used: hintsUsed });
+    trackEvent('song_complete', { completion_pct: completionPct, hints_used: hintsUsed, total_words: totalWords });
     if (endGameTitle) endGameTitle.textContent = getEndGameMessage(completionPct, false);
     if (endGameFound) endGameFound.textContent = userFoundOnly;
     if (endGameTotal) endGameTotal.textContent = totalWords;

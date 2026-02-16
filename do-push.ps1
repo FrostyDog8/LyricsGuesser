@@ -1,4 +1,4 @@
 cd "c:\Users\Omer Dabby\Desktop\Lyrics Figure"
 git add -A
-git commit -m "Optimize mobile in-game buttons: more compact layout and better organization"
+git commit -m "Add analytics: Spotify mode, song search, surprise modes, song selected, reveal year/lyrics, play again, help opened; enrich song_complete and song_give_up"
 git push
